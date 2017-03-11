@@ -1,0 +1,6 @@
+[package]
+name = "tokio-irc-client"
+version = "0.1.0"
+authors = ["Joshua R. Rodgers <bytemr@gmail.com>"]
+
+[dependencies]
