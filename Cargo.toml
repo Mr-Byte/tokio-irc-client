@@ -4,3 +4,8 @@ version = "0.1.0"
 authors = ["Joshua R. Rodgers <bytemr@gmail.com>"]
 
 [dependencies]
+futures = "0.1"
+tokio-core = "0.1"
+tokio-tls = "0.1"
+native-tls = "0.1"
+error-chain = "0.8"
