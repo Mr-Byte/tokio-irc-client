@@ -253,9 +253,9 @@ mod tests {
 
     #[test]
     fn messages_containing_multibyte_characters_can_be_parsed() {
-        let (result, _) = parse_message("TEST :����".as_bytes()).unwrap();
+        let (result, _) = parse_message("TEST :💖".as_bytes()).unwrap();
 
-        const EXPECTED_RESULT: &'static str = "����";
+        const EXPECTED_RESULT: &'static str = "💖";
 
         assert_eq!(EXPECTED_RESULT, result.suffix.unwrap());
     }
