@@ -19,7 +19,7 @@ use std::time;
 const PING_TIMEOUT_IN_SECONDS: u64 = 10 * 60;
 const COMMAND_PING: &'static str = "PING";
 
-type IrcFramedStream<T> where T: Io = Framed<T, codec::IrcCodec>;
+pub type IrcFramedStream<T> where T: Io = Framed<T, codec::IrcCodec>;
 
 pub struct Client {
     host: SocketAddr,
@@ -45,26 +45,18 @@ impl Client {
                 match tls_builder.build() {
                     Ok(connector) => connector,
                     Err(err) => {
-                        return ClientConnectTlsFuture {
-                            inner: TlsConnectResult::Err(ErrorKind::Tls(err).into()),
-                        }
+                        return ClientConnectTlsFuture::Err(ErrorKind::Tls(err).into());
                     }
                 }
             }
             Err(err) => {
-                return ClientConnectTlsFuture {
-                    inner: TlsConnectResult::Err(ErrorKind::Tls(err).into()),
-                }
+                return ClientConnectTlsFuture::Err(ErrorKind::Tls(err).into());
             }
         };
 
         let tcp_stream = TcpStream::connect(&self.host, handle);
 
-        ClientConnectTlsFuture {
-            inner: TlsConnectResult::Success(TlsConnectFuture {
-                chain: TlsConnectChain::TcpConnect(tcp_stream, tls_connector, domain.into()),
-            }),
-        }
+        ClientConnectTlsFuture::TcpConnecting(tcp_stream, tls_connector, domain.into())
     }
 }
 
@@ -84,47 +76,10 @@ impl Future for ClientConnectFuture {
     }
 }
 
-enum TlsConnectChain {
-    TcpConnect(TcpStreamNew, TlsConnector, String),
-    TlsConnect(ConnectAsync<TcpStream>),
-}
-
-struct TlsConnectFuture {
-    chain: TlsConnectChain,
-}
-
-impl Future for TlsConnectFuture {
-    type Item = TlsStream<TcpStream>;
-    type Error = Error;
-
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let connect_async = match self.chain {
-            TlsConnectChain::TcpConnect(ref mut tcp_connect_future,
-                                        ref mut tls_connector,
-                                        ref domain) => {
-                let tcp_stream = try_ready!(tcp_connect_future.poll());
-
-                tls_connector.connect_async(&domain, tcp_stream)
-            }
-            TlsConnectChain::TlsConnect(ref mut tls_connect_future) => {
-                let tls_stream = try_ready!(tls_connect_future.poll());
-                return Ok(Async::Ready(tls_stream));
-            }
-        };
-
-        ::std::mem::replace(&mut self.chain, TlsConnectChain::TlsConnect(connect_async));
-
-        Ok(Async::NotReady)
-    }
-}
-
-enum TlsConnectResult {
+pub enum ClientConnectTlsFuture {
     Err(Error),
-    Success(TlsConnectFuture),
-}
-
-pub struct ClientConnectTlsFuture {
-    inner: TlsConnectResult,
+    TcpConnecting(TcpStreamNew, TlsConnector, String),
+    TlsHandshake(ConnectAsync<TcpStream>),
 }
 
 impl Future for ClientConnectTlsFuture {
@@ -132,18 +87,31 @@ impl Future for ClientConnectTlsFuture {
     type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self.inner {
-            TlsConnectResult::Err(ref mut error) => {
-                let error = ::std::mem::replace(error, ErrorKind::Unexpected.into());
-                Err(error)
-            }
-            TlsConnectResult::Success(ref mut inner) => {
-                let framed: IrcFramedStream<_> = try_ready!(inner.poll()).framed(codec::IrcCodec);
-                let irc_transport = IrcTransport::new(framed);
 
-                Ok(Async::Ready(irc_transport))
+        let connect_async = match *self {
+            ClientConnectTlsFuture::Err(ref mut error) => {
+                let error = ::std::mem::replace(error, ErrorKind::Unexpected.into());
+                return Err(error);
             }
-        }
+
+            ClientConnectTlsFuture::TcpConnecting(ref mut tcp_connect_future,
+                                                  ref mut tls_connector,
+                                                  ref domain) => {
+                let tcp_stream = try_ready!(tcp_connect_future.poll());
+
+                tls_connector.connect_async(&domain, tcp_stream)
+            }
+
+            ClientConnectTlsFuture::TlsHandshake(ref mut tls_connect_future) => {
+                let tls_stream = try_ready!(tls_connect_future.poll());
+
+                return Ok(Async::Ready(IrcTransport::new(tls_stream.framed(codec::IrcCodec))));
+            }
+        };
+
+        ::std::mem::replace(self, ClientConnectTlsFuture::TlsHandshake(connect_async));
+
+        Ok(Async::NotReady)
     }
 }
 
