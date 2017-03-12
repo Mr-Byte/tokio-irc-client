@@ -2,6 +2,7 @@ error_chain! {
     foreign_links {
         Io(::std::io::Error);
         Tls(::native_tls::Error);
+        Utf8(::std::string::FromUtf8Error);
     }
 
     errors { 
@@ -15,9 +16,9 @@ error_chain! {
             display("The connection was reset by the remote host.")
         }
 
-        HostParseFailure(host: String) {
-            description("Unable to parse host.")
-            display("Unable to parse host: {}", host)
+        UnexpectedEndOfInput {
+            description("Encountered unexpected end of input while reading message from server.")
+            display("Encountered unexpected end of input while reading message from server.")
         }
     }
 }

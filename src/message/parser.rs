@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use super::Message;
-
-pub mod error;
+use super::super::error;
 
 type ParseResult<'input, T> = error::Result<(T, &'input [u8])>;
 
@@ -48,7 +47,7 @@ fn parse_tags(input: &[u8]) -> ParseResult<Option<HashMap<String, String>>> {
                 remainder = move_next(remainder, len)?;
             }
 
-            let key = unsafe { String::from_utf8_unchecked(input[key_start..remainder].to_vec()) };
+            let key = String::from_utf8(input[key_start..remainder].to_vec())?;
 
             remainder = move_next(remainder, len)?;
 
@@ -57,7 +56,7 @@ fn parse_tags(input: &[u8]) -> ParseResult<Option<HashMap<String, String>>> {
                 remainder = move_next(remainder, len)?;
             }
 
-            let value = unsafe { String::from_utf8_unchecked(input[value_start..remainder].to_vec()) };
+            let value = String::from_utf8(input[value_start..remainder].to_vec())?;
 
             tags.insert(key, value);
 
@@ -88,7 +87,7 @@ fn parse_prefix(input: &[u8]) -> ParseResult<Option<String>> {
             remainder = move_next(remainder, len)?;
         }
 
-        let prefix = unsafe { String::from_utf8_unchecked(input[1..remainder].to_vec()) };
+        let prefix = String::from_utf8(input[1..remainder].to_vec())?;
 
         remainder = move_next(remainder, len)?;
 
@@ -114,7 +113,7 @@ fn parse_command(mut input: &[u8]) -> ParseResult<String> {
         remainder += 1;
     }
 
-    let command = unsafe { String::from_utf8_unchecked(input[0..remainder].to_vec()) };
+    let command = String::from_utf8(input[0..remainder].to_vec())?;
 
     if remainder < len && input[remainder] == b' ' {
         remainder = move_next(remainder, len)?;
@@ -143,7 +142,7 @@ fn parse_args(input: &[u8]) -> ParseResult<Option<Vec<String>>> {
         }
 
         if input[remainder] == b' ' {
-            let arg = unsafe { String::from_utf8_unchecked(input[arg_start..remainder].to_vec()) };
+            let arg = String::from_utf8(input[arg_start..remainder].to_vec())?;
             args.push(arg);
 
             arg_start = remainder + 1;
@@ -152,7 +151,7 @@ fn parse_args(input: &[u8]) -> ParseResult<Option<Vec<String>>> {
         remainder += 1;
 
         if remainder >= len {
-            let arg = unsafe { String::from_utf8_unchecked(input[arg_start..remainder].to_vec()) };
+            let arg = String::from_utf8(input[arg_start..remainder].to_vec())?;
             args.push(arg);
             break;
         }
@@ -173,7 +172,7 @@ fn parse_suffix(mut input: &[u8]) -> ParseResult<Option<String>> {
     }
 
     if len >= 2 && input[0] == b':' {
-        let suffix = unsafe { String::from_utf8_unchecked(input[1..len].to_vec()) };
+        let suffix = String::from_utf8(input[1..len].to_vec())?;
 
         Ok((Some(suffix), &input[len..]))
     } else {
@@ -212,7 +211,8 @@ mod tests {
 
     #[test]
     fn parsing_an_irc_message_with_prefix_and_suffix_should_give_the_prefix_suffix_and_command() {
-        let (result, _) = parse_message(":other.server.com TEST :test.server.com".as_bytes()).unwrap();
+        let (result, _) = parse_message(":other.server.com TEST :test.server.com".as_bytes())
+            .unwrap();
 
         assert_eq!("other.server.com", result.prefix.unwrap());
         assert_eq!("TEST", result.command);
@@ -228,7 +228,8 @@ mod tests {
     }
 
     #[test]
-    fn parsing_an_irc_message_with_arguments_and_suffix_should_give_the_command_suffix_and_arguments() {
+    fn parsing_an_irc_message_with_arguments_and_suffix_should_give_the_command_suffix_and_arguments
+        () {
         let (result, _) = parse_message("TEST a b c :Memes for all!".as_bytes()).unwrap();
 
         assert_eq!("TEST", result.command);
