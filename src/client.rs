@@ -40,23 +40,25 @@ impl Client {
                                         handle: &Handle,
                                         domain: D)
                                         -> ClientConnectTlsFuture {
+        use self::ClientConnectTlsFuture::*;
+
         let tls_connector = match TlsConnector::builder() {
             Ok(tls_builder) => {
                 match tls_builder.build() {
                     Ok(connector) => connector,
                     Err(err) => {
-                        return ClientConnectTlsFuture::Err(ErrorKind::Tls(err).into());
+                        return TlsErr(ErrorKind::Tls(err).into());
                     }
                 }
             }
             Err(err) => {
-                return ClientConnectTlsFuture::Err(ErrorKind::Tls(err).into());
+                return TlsErr(ErrorKind::Tls(err).into());
             }
         };
 
         let tcp_stream = TcpStream::connect(&self.host, handle);
 
-        ClientConnectTlsFuture::TcpConnecting(tcp_stream, tls_connector, domain.into())
+        TcpConnecting(tcp_stream, tls_connector, domain.into())
     }
 }
 
@@ -77,7 +79,7 @@ impl Future for ClientConnectFuture {
 }
 
 pub enum ClientConnectTlsFuture {
-    Err(Error),
+    TlsErr(Error),
     TcpConnecting(TcpStreamNew, TlsConnector, String),
     TlsHandshake(ConnectAsync<TcpStream>),
 }
@@ -87,28 +89,28 @@ impl Future for ClientConnectTlsFuture {
     type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        use self::ClientConnectTlsFuture::*;
+
         let connect_async = match *self {
-            ClientConnectTlsFuture::Err(ref mut error) => {
+            TlsErr(ref mut error) => {
                 let error = ::std::mem::replace(error, ErrorKind::Unexpected.into());
                 return Err(error);
             }
 
-            ClientConnectTlsFuture::TlsHandshake(ref mut tls_connect_future) => {
+            TlsHandshake(ref mut tls_connect_future) => {
                 let framed = try_ready!(tls_connect_future.poll()).framed(codec::IrcCodec);
                 let irc_transport = IrcTransport::new(framed);
 
                 return Ok(Async::Ready(irc_transport));
             }
 
-            ClientConnectTlsFuture::TcpConnecting(ref mut tcp_connect_future,
-                                                  ref mut tls_connector,
-                                                  ref domain) => {
+            TcpConnecting(ref mut tcp_connect_future, ref mut tls_connector, ref domain) => {
 
                 let tcp_stream = try_ready!(tcp_connect_future.poll());
                 tls_connector.connect_async(&domain, tcp_stream)
             }
         };
-        
+
         *self = ClientConnectTlsFuture::TlsHandshake(connect_async);
 
         Ok(Async::NotReady)
@@ -126,6 +128,10 @@ impl<T: Io> IrcTransport<T> {
             inner: inner,
             last_ping: time::Instant::now(),
         }
+    }
+
+    fn ping_timed_out(&self) -> bool {
+        self.last_ping.elapsed().as_secs() >= PING_TIMEOUT_IN_SECONDS
     }
 
     fn poll_next(&mut self) -> Poll<Option<Message>, Error> {
@@ -153,9 +159,7 @@ impl Stream for IrcTransport<TcpStream> {
     type Error = Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        let elapsed = self.last_ping.elapsed();
-
-        if elapsed.as_secs() >= PING_TIMEOUT_IN_SECONDS {
+        if self.ping_timed_out() {
             self.inner.get_mut().shutdown(Shutdown::Both)?;
             return Err(ErrorKind::ConnectionReset.into());
         }
@@ -169,9 +173,7 @@ impl Stream for IrcTransport<TlsStream<TcpStream>> {
     type Error = Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        let elapsed = self.last_ping.elapsed();
-
-        if elapsed.as_secs() >= PING_TIMEOUT_IN_SECONDS {
+        if self.ping_timed_out() {
             self.inner.get_mut().get_mut().shutdown()?;
             return Err(ErrorKind::ConnectionReset.into());
         }
