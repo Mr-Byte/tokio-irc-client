@@ -53,6 +53,17 @@ pub fn nick<S: Into<String>>(nick: S) -> Message {
     }
 }
 
+/// Constructs a USER message from a username and a real name.
+pub fn user<S: Into<String>>(username: S, real_name: S) -> Message {
+    Message {
+        tags: None,
+        prefix: None,
+        command: "USER".into(),
+        args: Some(vec![username.into(), "0".into(), "*".into()]),
+        suffix: Some(real_name.into())
+    }
+}
+
 /// Constructs an IRCv3 CAP REQ messages which requests the specified
 /// capability.
 pub fn cap_req<S: Into<String>>(cap: S) -> Message {
