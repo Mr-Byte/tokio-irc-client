@@ -3,6 +3,22 @@ use std::fmt::{Display, Formatter, Error};
 
 pub mod parser;
 
+/// Representation of IRC messages that splits a message into its constituent
+/// parts specified in RFC1459 and the IRCv3 spec.
+///
+/// `command` represents the command being sent or received by the client.
+///
+/// `tags` is an IRCv3 extension that provides a set of key/value pairs of
+/// metadata that can be associated with a message.
+///
+/// `prefix` Is typically only populated by the server and indicates the origin
+/// of the message.
+///
+/// `args` represents a collection of arguments associated with the command.
+///
+/// `suffix` represents a suffix appended to a message, typically everything
+/// trailing the first `:` to follow the `command`. This is usually where
+/// information such as the message body of a PRIVMSG command is stored.
 #[derive(Debug)]
 pub struct Message {
     pub command: String,
@@ -12,6 +28,10 @@ pub struct Message {
     pub suffix: Option<String>,
 }
 
+// TODO: Perhaps better explain what each of the mssages do and their usage
+// within IRC.
+
+/// Constructs a PASS message with the given password as an argument.
 pub fn pass<S: Into<String>>(pass: S) -> Message {
     Message {
         tags: None,
@@ -22,6 +42,7 @@ pub fn pass<S: Into<String>>(pass: S) -> Message {
     }
 }
 
+/// Constructs a NICK message with the given nickname as an argument.
 pub fn nick<S: Into<String>>(nick: S) -> Message {
     Message {
         tags: None,
@@ -32,6 +53,8 @@ pub fn nick<S: Into<String>>(nick: S) -> Message {
     }
 }
 
+/// Constructs an IRCv3 CAP REQ messages which requests the specified
+/// capability.
 pub fn cap_req<S: Into<String>>(cap: S) -> Message {
     Message {
         tags: None,
@@ -42,16 +65,18 @@ pub fn cap_req<S: Into<String>>(cap: S) -> Message {
     }
 }
 
-pub fn pong<S: Into<String>>(server: S) -> Message {
+/// Constructs a PONG message with the specified host.
+pub fn pong<S: Into<String>>(host: S) -> Message {
     Message {
         tags: None,
         prefix: None,
         command: "PONG".into(),
         args: None,
-        suffix: Some(server.into()),
+        suffix: Some(host.into()),
     }
 }
 
+/// Constructs a JOIN message with the specified channel.
 pub fn join<S: Into<String>>(channel: S) -> Message {
     Message {
         tags: None,
@@ -62,6 +87,8 @@ pub fn join<S: Into<String>>(channel: S) -> Message {
     }
 }
 
+// Constructs a PRIVMSG message for sending a message to the specified target.
+// The target is either another user or a channel.
 pub fn privmsg<S1: Into<String>, S2: Into<String>>(target: S1, message: S2) -> Message {
     Message {
         tags: None,
@@ -72,6 +99,14 @@ pub fn privmsg<S1: Into<String>, S2: Into<String>>(target: S1, message: S2) -> M
     }
 }
 
+// Implementation of Display for `Message` that converts the `Message` into an
+// IRC command to be sent to the server. This does not include the required
+// `\r\n` that must be appended to the end of a message. The underlying IRC
+// codec will handle the conversion of messages and appending of the `\r\n`
+// so typically a consumer of this library will not need to call this directly.
+// Although it can be helpful for debugging purposes by allowing the consumer
+// to see what the IRC message being sent to the server looks like in string
+// format.
 impl Display for Message {
     fn fmt(&self, formatter: &mut Formatter) -> Result<(), Error> {
         if let Some(ref tags) = self.tags {
