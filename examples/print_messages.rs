@@ -37,7 +37,7 @@ fn main() {
             // Checking if the command is PRIVMSG allows us to print just the
             // messages
             irc.for_each(|packet| {
-                if packet.command == "PRIVMSG" {
+                if packet.command == message::Command::Privmsg {
                     let prefix = packet.prefix.unwrap().to_owned();
                     let nick = prefix.split("!").next().unwrap();
                     println!("<{}> {}", nick, packet.suffix.unwrap());

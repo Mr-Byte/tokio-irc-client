@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use super::Message;
+use super::Command;
 use super::super::error;
+use std::str;
 
 type ParseResult<'input, T> = error::Result<(T, &'input [u8])>;
 
@@ -97,7 +99,7 @@ fn parse_prefix(input: &[u8]) -> ParseResult<Option<String>> {
     }
 }
 
-fn parse_command(mut input: &[u8]) -> ParseResult<String> {
+fn parse_command(mut input: &[u8]) -> ParseResult<Command> {
     if input.is_empty() {
         return Err(error::ErrorKind::UnexpectedEndOfInput.into());
     }
@@ -113,7 +115,12 @@ fn parse_command(mut input: &[u8]) -> ParseResult<String> {
         remainder += 1;
     }
 
-    let command = String::from_utf8(input[0..remainder].to_vec())?;
+    let command = match &*str::from_utf8(&input[0..remainder]).unwrap_or("").to_lowercase() {
+        "pass" => Command::Pass,
+        "nick" => Command::Nick,
+        "user" => Command::User,
+        c => Command::Other(c.into())
+    };
 
     if remainder < len && input[remainder] == b' ' {
         remainder = move_next(remainder, len)?;

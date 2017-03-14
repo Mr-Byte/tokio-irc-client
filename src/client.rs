@@ -1,6 +1,5 @@
 use codec;
-use message::Message;
-use message;
+use message::{self, Message, Command};
 use error::{Error, ErrorKind};
 
 use futures::{Future, Sink, Stream, Poll, StartSend, Async};
@@ -17,7 +16,6 @@ use std::net::{SocketAddr, Shutdown};
 use std::time;
 
 const PING_TIMEOUT_IN_SECONDS: u64 = 10 * 60;
-const COMMAND_PING: &'static str = "PING";
 
 pub type IrcFramedStream<T> where T: Io = Framed<T, codec::IrcCodec>;
 
@@ -193,7 +191,7 @@ impl<T: Io> IrcTransport<T> {
     fn poll_next(&mut self) -> Poll<Option<Message>, Error> {
         loop {
             match try_ready!(self.inner.poll()) {
-                Some(ref message) if message.command == COMMAND_PING => {
+                Some(ref message) if message.command == Command::Ping => {
                     self.last_ping = time::Instant::now();
 
                     if let Some(ref suffix) = message.suffix {
