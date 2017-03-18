@@ -21,11 +21,41 @@ pub mod parser;
 /// information such as the message body of a PRIVMSG command is stored.
 #[derive(Debug)]
 pub struct Message {
-    pub command: String,
+    pub command: Command,
     pub tags: Option<HashMap<String, String>>,
     pub prefix: Option<String>,
     pub args: Option<Vec<String>>,
     pub suffix: Option<String>,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Command {
+    Pass,
+    Nick,
+    User,
+    Ping,
+    Pong,
+    Join,
+    Privmsg,
+    Cap,
+    Other(String)
+}
+
+impl Display for Command {
+    fn fmt(&self, formatter: &mut Formatter) -> Result<(), Error> {
+        match *self {
+            Command::Pass => write!(formatter, "PASS")?,
+            Command::Nick => write!(formatter, "NICK")?,
+            Command::User => write!(formatter, "USER")?,
+            Command::Ping => write!(formatter, "PING")?,
+            Command::Pong => write!(formatter, "PONG")?,
+            Command::Join => write!(formatter, "JOIN")?,
+            Command::Privmsg => write!(formatter, "PRIVMSG")?,
+            Command::Cap => write!(formatter, "CAP")?,
+            Command::Other(ref s) => write!(formatter, "{}", s)?
+        }
+        Ok(())
+    }
 }
 
 // TODO: Perhaps better explain what each of the mssages do and their usage
@@ -36,7 +66,7 @@ pub fn pass<S: Into<String>>(pass: S) -> Message {
     Message {
         tags: None,
         prefix: None,
-        command: "PASS".into(),
+        command: Command::Pass,
         args: Some(vec![pass.into()]),
         suffix: None,
     }
@@ -47,7 +77,7 @@ pub fn nick<S: Into<String>>(nick: S) -> Message {
     Message {
         tags: None,
         prefix: None,
-        command: "NICK".into(),
+        command: Command::Nick,
         args: Some(vec![nick.into()]),
         suffix: None,
     }
@@ -58,7 +88,7 @@ pub fn user<S: Into<String>>(username: S, real_name: S) -> Message {
     Message {
         tags: None,
         prefix: None,
-        command: "USER".into(),
+        command: Command::User,
         args: Some(vec![username.into(), "0".into(), "*".into()]),
         suffix: Some(real_name.into())
     }
@@ -70,7 +100,7 @@ pub fn cap_req<S: Into<String>>(cap: S) -> Message {
     Message {
         tags: None,
         prefix: None,
-        command: "CAP".into(),
+        command: Command::Cap,
         args: Some(vec!["REQ".into()]),
         suffix: Some(cap.into()),
     }
@@ -81,7 +111,7 @@ pub fn pong<S: Into<String>>(host: S) -> Message {
     Message {
         tags: None,
         prefix: None,
-        command: "PONG".into(),
+        command: Command::Pong,
         args: None,
         suffix: Some(host.into()),
     }
@@ -92,7 +122,7 @@ pub fn join<S: Into<String>>(channel: S) -> Message {
     Message {
         tags: None,
         prefix: None,
-        command: "JOIN".into(),
+        command: Command::Join,
         args: Some(vec![channel.into()]),
         suffix: None,
     }
@@ -104,7 +134,7 @@ pub fn privmsg<S1: Into<String>, S2: Into<String>>(target: S1, message: S2) -> M
     Message {
         tags: None,
         prefix: None,
-        command: "PRIVMSG".into(),
+        command: Command::Privmsg,
         args: Some(vec![target.into()]),
         suffix: Some(message.into()),
     }
