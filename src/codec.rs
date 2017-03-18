@@ -1,4 +1,5 @@
-use tokio_core::io::{Codec, EasyBuf};
+use bytes::{BytesMut, BufMut};
+use tokio_io::codec::{Encoder, Decoder};
 
 use message::Message;
 use message::parser;
@@ -11,16 +12,16 @@ const DELIMETER_LENGTH: usize = 2;
 
 pub struct IrcCodec;
 
-impl Codec for IrcCodec {
-    type In = Message;
-    type Out = Message;
+impl Decoder for IrcCodec {
+    type Item = Message;
+    type Error = io::Error;
 
-    fn decode(&mut self, buffer: &mut EasyBuf) -> io::Result<Option<Self::In>> {
-        if let Some(index) = buffer.as_slice().iter().position(|&b| b == b'\n') {
-            let command = buffer.drain_to(index - 1);
-            buffer.drain_to(DELIMETER_LENGTH);
+    fn decode(&mut self, buffer: &mut BytesMut) -> io::Result<Option<Self::Item>> {
+        if let Some(index) = buffer.iter().position(|&b| b == b'\n') {
+            let command = buffer.split_to(index - 1);
+            buffer.split_to(DELIMETER_LENGTH);
 
-            let parse_result = parser::parse_message(command.as_slice());
+            let parse_result = parser::parse_message(&command);
 
             match parse_result {
                 Ok((message, _)) => {
@@ -32,9 +33,14 @@ impl Codec for IrcCodec {
             Ok(None)
         }
     }
+}
 
-    fn encode(&mut self, message: Self::Out, buffer: &mut Vec<u8>) -> io::Result<()> {
-        write!(buffer, "{}\r\n", message)?;
+impl Encoder for IrcCodec {    
+    type Item = Message;
+    type Error = io::Error;
+
+    fn encode(&mut self, message: Self::Item, buffer: &mut BytesMut) -> io::Result<()> {
+        write!(buffer.writer(), "{}\r\n", message)?;
 
         Ok(())
     }

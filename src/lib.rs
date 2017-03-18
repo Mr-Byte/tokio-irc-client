@@ -32,7 +32,9 @@ extern crate futures;
 #[macro_use]
 extern crate error_chain;
 extern crate tokio_core;
+extern crate tokio_io;
 extern crate tokio_tls;
+extern crate bytes;
 extern crate native_tls;
 
 mod codec;

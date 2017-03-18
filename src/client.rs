@@ -5,21 +5,23 @@ use error::{Error, ErrorKind};
 
 use futures::{Future, Sink, Stream, Poll, StartSend, Async};
 
-use tokio_core::io::{Io, Framed};
 use tokio_core::reactor::Handle;
 use tokio_core::net::{TcpStream, TcpStreamNew};
+
+use tokio_io::{AsyncRead, AsyncWrite};
+use tokio_io::codec::Framed;
 
 use tokio_tls::{ConnectAsync, TlsConnectorExt, TlsStream};
 
 use native_tls::TlsConnector;
 
-use std::net::{SocketAddr, Shutdown};
+use std::net::SocketAddr;
 use std::time;
 
 const PING_TIMEOUT_IN_SECONDS: u64 = 10 * 60;
 const COMMAND_PING: &'static str = "PING";
 
-pub type IrcFramedStream<T> where T: Io = Framed<T, codec::IrcCodec>;
+pub type IrcFramedStream<T> where T: AsyncRead + AsyncWrite = Framed<T, codec::IrcCodec>;
 
 /// A light-weight client type for establishing connections to remote servers.
 /// This type consumes a given `SocketAddr` and provides several methods for
@@ -43,7 +45,7 @@ impl Client {
 
     /// Returns a future, that when resolved provides an unecrypted `Stream`
     /// that can be used to receive `Message` from the server and send `Message`
-    /// to the server. 
+    /// to the server.
     ///
     /// The resulting `Stream` can be `split` into a separate `Stream` for
     /// receiving `Message` from the server and a `Sink` for sending `Message`
@@ -92,7 +94,7 @@ impl Client {
 
 /// Represents a future, that when resolved provides an unecrypted `Stream`
 /// that can be used to receive `Message` from the server and send `Message`
-/// to the server. 
+/// to the server.
 pub struct ClientConnectFuture {
     inner: TcpStreamNew,
 }
@@ -173,12 +175,12 @@ impl Future for ClientConnectTlsFuture {
 ///
 /// It is possible to split `IrcTransport` into `Stream` and `Sink` via the
 /// the `split` method.
-pub struct IrcTransport<T: Io> {
+pub struct IrcTransport<T: AsyncRead + AsyncWrite> {
     inner: IrcFramedStream<T>,
     last_ping: time::Instant,
 }
 
-impl<T: Io> IrcTransport<T> {
+impl<T: AsyncRead + AsyncWrite> IrcTransport<T> {
     fn new(inner: IrcFramedStream<T>) -> IrcTransport<T> {
         IrcTransport {
             inner: inner,
@@ -216,7 +218,7 @@ impl Stream for IrcTransport<TcpStream> {
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         if self.ping_timed_out() {
-            self.inner.get_mut().shutdown(Shutdown::Both)?;
+            self.inner.close()?;
             return Err(ErrorKind::ConnectionReset.into());
         }
 
@@ -230,7 +232,7 @@ impl Stream for IrcTransport<TlsStream<TcpStream>> {
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         if self.ping_timed_out() {
-            self.inner.get_mut().get_mut().shutdown()?;
+            self.inner.close()?;
             return Err(ErrorKind::ConnectionReset.into());
         }
 
@@ -238,7 +240,7 @@ impl Stream for IrcTransport<TlsStream<TcpStream>> {
     }
 }
 
-impl<T: Io> Sink for IrcTransport<T> {
+impl<T: AsyncRead + AsyncWrite> Sink for IrcTransport<T> {
     type SinkItem = Message;
     type SinkError = Error;
 
