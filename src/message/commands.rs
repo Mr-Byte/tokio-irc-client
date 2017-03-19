@@ -1,4 +1,4 @@
-use error::{Error, Result};
+use error::Result;
 use message::{Command, Message};
 
 pub struct Ping<'a>(pub &'a str);

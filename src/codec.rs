@@ -1,11 +1,7 @@
-use bytes::{BytesMut, BufMut};
+use bytes::BytesMut;
 use tokio_io::codec::{Encoder, Decoder};
 
 use message::Message;
-
-use std::io;
-use std::io::Write;
-use std::str;
 
 use super::error::{Error, Result};
 
@@ -29,12 +25,13 @@ impl Decoder for IrcCodec {
     }
 }
 
-impl Encoder for IrcCodec {    
+impl Encoder for IrcCodec {
     type Item = Message;
     type Error = Error;
 
     fn encode(&mut self, message: Self::Item, buffer: &mut BytesMut) -> Result<()> {
-        write!(buffer.writer(), "{}\r\n", message.raw_message())?;
+        buffer.extend(message.raw_message().as_bytes());
+        buffer.extend(&[b'\r', b'\n']);
 
         Ok(())
     }

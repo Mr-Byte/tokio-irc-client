@@ -1,8 +1,7 @@
-use std::collections::HashMap;
 use std::ops::Range;
 use std::slice::Iter;
 
-use super::error::{Error, Result};
+use super::error::Result;
 
 mod parser;
 pub mod commands;
@@ -44,9 +43,8 @@ impl<'a> Iterator for TagIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|tag_range| {
-                                 (&self.source[tag_range.key.clone()],
-                                  &self.source[tag_range.value.clone()])
-                             })
+            (&self.source[tag_range.key.clone()], &self.source[tag_range.value.clone()])
+        })
     }
 }
 
@@ -69,14 +67,14 @@ impl Message {
     pub fn command<'a, T: Command<'a>>(&'a self) -> Option<T> {
         <T as Command>::parse(self)
     }
-    
+
     pub fn tag<'a, T: Tag<'a>>(&'a self) -> Option<T> {
         for (key, value) in self.raw_tags() {
             if key == <T as Tag>::name() {
                 return <T as Tag>::parse(value);
             }
         }
-        
+
         None
     }
 

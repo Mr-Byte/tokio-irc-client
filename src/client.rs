@@ -1,7 +1,6 @@
 use codec;
 use message::Message;
 use message::commands::{Ping, Pong};
-use message;
 use error::{Error, ErrorKind};
 
 use futures::{Future, Sink, Stream, Poll, StartSend, Async};
@@ -20,7 +19,6 @@ use std::net::SocketAddr;
 use std::time;
 
 const PING_TIMEOUT_IN_SECONDS: u64 = 10 * 60;
-const COMMAND_PING: &'static str = "PING";
 
 pub type IrcFramedStream<T> where T: AsyncRead + AsyncWrite = Framed<T, codec::IrcCodec>;
 

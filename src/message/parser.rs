@@ -1,7 +1,6 @@
 use message::{Message, TagRange};
 use error;
 
-use std::collections::HashMap;
 use std::ops::Range;
 
 type ParseResult<'input, T> = error::Result<(T, &'input str)>;
