@@ -3,186 +3,173 @@ use error;
 
 use std::ops::Range;
 
-type ParseResult<'input, T> = error::Result<(T, &'input str)>;
+type ParseResult<'input, T> = error::Result<(T, usize)>;
 
-pub fn parse_message(message: String) -> error::Result<Message> {
-    //TODO: Fix the parser to return the appropriate ranges.
+pub fn parse_message<M: Into<String>>(message: M) -> error::Result<Message> {
+    let message = message.into();
 
-    // let (tags, input) = parse_tags(&message)?;
-    // let (prefix, input) = parse_prefix(input)?;
-    // let (command, input) = parse_command(input)?;
-    // let (args, input) = parse_args(input)?;
-    // let (suffix, input) = parse_suffix(input)?;
+    let (tags, prefix, command, args) = {
+        let input = message.as_bytes();
+        let (tags, position) = parse_tags(input)?;
+        let (prefix, position) = parse_prefix(input, position)?;
+        let (command, position) = parse_command(input, position)?;
+        let (args, _) = parse_args(input, position)?;
 
-    // Ok(Message {
-    //     message: message,
-    //     tags: tags,
-    //     prefix: prefix,
-    //     command: command,
-    //     arguments: args,
-    // })
+        (tags, prefix, command, args)
+    };
 
-    panic!("Not implemented.")
+    Ok(Message {
+        message: message,
+        tags: tags,
+        prefix: prefix,
+        command: command,
+        arguments: args,
+    })
 }
 
-// fn move_next(value: usize, bound: usize) -> error::Result<usize> {
-//     let value = value + 1;
+fn move_next(value: usize, bound: usize) -> error::Result<usize> {
+    let value = value + 1;
 
-//     if value >= bound {
-//         Err(error::ErrorKind::UnexpectedEndOfInput.into())
-//     } else {
-//         Ok(value)
-//     }
-// }
+    if value >= bound {
+        Err(error::ErrorKind::UnexpectedEndOfInput.into())
+    } else {
+        Ok(value)
+    }
+}
 
-// fn parse_tags(input: &str) -> ParseResult<Option<Vec<TagRange>>> {
-//     if input.is_empty() {
-//         return Err(error::ErrorKind::UnexpectedEndOfInput.into());
-//     }
+fn parse_tags(input: &[u8]) -> ParseResult<Option<Vec<TagRange>>> {
+    if input.is_empty() {
+        return Err(error::ErrorKind::UnexpectedEndOfInput.into());
+    }
 
-//     if input[0] == b'@' {
-//         let len = input.len();
-//         let mut tags = HashMap::new();
-//         let mut remainder = move_next(0, len)?;
+    if input[0] == b'@' {
+        let mut tags: Vec<TagRange> = Vec::new();
+        let mut position = 1; // We can skip the @.
+        let len = input.len();
 
-//         loop {
-//             let key_start = remainder;
-//             while input[remainder] != b'=' {
-//                 remainder = move_next(remainder, len)?;
-//             }
+        loop {
+            let key_start = position;
+            while input[position] != b'=' {
+                if input[position] == b' ' {
+                    return Err(error::ErrorKind::UnexpectedEndOfInput.into());
+                }
 
-//             let key = String::from_utf8(input[key_start..remainder].to_vec())?;
+                position = move_next(position, len)?;
+            }
 
-//             remainder = move_next(remainder, len)?;
+            let key_range = key_start..position;
 
-//             let value_start = remainder;
-//             while input[remainder] != b';' && input[remainder] != b' ' {
-//                 remainder = move_next(remainder, len)?;
-//             }
+            position = move_next(position, len)?;
 
-//             let value = String::from_utf8(input[value_start..remainder].to_vec())?;
+            let value_start = position;
+            while input[position] != b';' && input[position] != b' ' {
+                position = move_next(position, len)?;
+            }
 
-//             tags.insert(key, value);
+            let value_range = value_start..position;
 
-//             if input[remainder] == b' ' {
-//                 remainder = move_next(remainder, len)?;
-//                 break;
-//             }
+            tags.push(TagRange {
+                key: key_range,
+                value: value_range,
+            });
 
-//             remainder = move_next(remainder, len)?;
-//         }
+            if input[position] == b' ' {
+                position = move_next(position, len)?;
+                break;
+            }
 
-//         Ok((Some(tags), &input[remainder..]))
-//     } else {
-//         Ok((None, input))
-//     }
-// }
+            position = move_next(position, len)?;
+        }
 
-// fn parse_prefix(input: &str) -> ParseResult<Option<String>> {
-//     if input.is_empty() {
-//         return Err(error::ErrorKind::UnexpectedEndOfInput.into());
-//     }
+        Ok((Some(tags), position))
+    } else {
+        Ok((None, 0))
+    }
+}
 
-//     if input[0] == b':' {
-//         let len = input.len();
-//         let mut remainder = move_next(0, len)?;
+fn parse_prefix(input: &[u8], mut position: usize) -> ParseResult<Option<Range<usize>>> {
+    let len = input.len();
 
-//         while input[remainder] != b' ' {
-//             remainder = move_next(remainder, len)?;
-//         }
+    if input.is_empty() || position >= len {
+        return Err(error::ErrorKind::UnexpectedEndOfInput.into());
+    }
 
-//         let prefix = String::from_utf8(input[1..remainder].to_vec())?;
+    if input[position] == b':' {
+        position = move_next(position, len)?;
+        let prefix_start = position;
 
-//         remainder = move_next(remainder, len)?;
+        while input[position] != b' ' {
+            position = move_next(position, len)?;
+        }
 
-//         Ok((Some(prefix), &input[remainder..]))
-//     } else {
-//         Ok((None, input))
-//     }
-// }
+        let prefix_range = prefix_start..position;
 
-// fn parse_command(mut input: &str) -> ParseResult<Range<usize>> {
-//     if input.is_empty() {
-//         return Err(error::ErrorKind::UnexpectedEndOfInput.into());
-//     }
+        position = move_next(position, len)?;
 
-//     if &input[0..1] == " " {
-//         input = &input[1..]
-//     }
+        Ok((Some(prefix_range), position))
+    } else {
+        Ok((None, position))
+    }
+}
 
-//     let mut remainder = 0;
-//     let len = input.len();
+fn parse_command(input: &[u8], mut position: usize) -> ParseResult<Range<usize>> {
+    let len = input.len();
+    if input.is_empty() || position >= len {
+        return Err(error::ErrorKind::UnexpectedEndOfInput.into());
+    }
 
-//     while remainder < len && input[remainder] != b' ' {
-//         remainder += 1;
-//     }
+    if input[0] == b' ' {
+        position += 1
+    }
 
-//     let command = String::from_utf8(input[0..remainder].to_vec())?;
+    let command_start = position;
 
-//     if remainder < len && input[remainder] == b' ' {
-//         remainder = move_next(remainder, len)?;
-//     }
+    while position < len && input[position] != b' ' {
+        position += 1;
+    }
 
-//     Ok((command, &input[remainder..]))
-// }
+    let command_range = command_start..position;
 
-// fn parse_args(input: &str) -> ParseResult<Option<Vec<String>>> {
-//     if input.is_empty() {
-//         return Ok((None, input));
-//     }
+    if position < len && input[position] == b' ' {
+        position = move_next(position, len)?;
+    }
 
-//     if input[0] == b':' {
-//         return Ok((None, input));
-//     }
+    Ok((command_range, position))
+}
 
-//     let mut args = Vec::new();
-//     let mut remainder = 0;
-//     let mut arg_start = 0;
-//     let len = input.len();
+fn parse_args(input: &[u8], mut position: usize) -> ParseResult<Option<Vec<Range<usize>>>> {
+    let len = input.len();
 
-//     loop {
-//         if input[remainder] == b':' {
-//             break;
-//         }
+    if input.is_empty() || position >= len {
+        return Ok((None, position));
+    }
 
-//         if input[remainder] == b' ' {
-//             let arg = String::from_utf8(input[arg_start..remainder].to_vec())?;
-//             args.push(arg);
+    let mut args = Vec::new();
+    let mut arg_start = position;
 
-//             arg_start = remainder + 1;
-//         }
+    loop {
+        if input[position] == b':' {
+            position += 1;
+            args.push(position..len);
+            break;
+        }
 
-//         remainder += 1;
+        if input[position] == b' ' {
+            args.push(arg_start..position);
 
-//         if remainder >= len {
-//             let arg = String::from_utf8(input[arg_start..remainder].to_vec())?;
-//             args.push(arg);
-//             break;
-//         }
-//     }
+            arg_start = position + 1;
+        }
 
-//     Ok((Some(args), &input[remainder..]))
-// }
+        position += 1;
 
-// fn parse_suffix(mut input: &str) -> ParseResult<Option<String>> {
-//     if input.is_empty() {
-//         return Ok((None, input));
-//     }
+        if position >= len {
+            args.push(arg_start..position);
+            break;
+        }
+    }
 
-//     let len = input.len();
-
-//     if input[0] == b' ' {
-//         input = &input[1..];
-//     }
-
-//     if len >= 2 && input[0] == b':' {
-//         let suffix = String::from_utf8(input[1..len].to_vec())?;
-
-//         Ok((Some(suffix), &input[len..]))
-//     } else {
-//         Ok((None, input))
-//     }
-// }
+    Ok((Some(args), position))
+}
 
 #[cfg(test)]
 mod tests {
@@ -192,76 +179,81 @@ mod tests {
 
     #[test]
     fn parsing_an_irc_message_with_just_command_should_give_the_command() {
-        let (result, _) = parse_message("TEST".as_bytes()).unwrap();
+        let result = parse_message("TEST").unwrap();
 
-        assert_eq!("TEST", result.command);
+        assert_eq!("TEST", result.raw_command());
     }
 
     #[test]
     fn parsing_an_irc_message_with_prefix_should_give_the_prefix_and_command() {
-        let (result, _) = parse_message(":test.server.com TEST".as_bytes()).unwrap();
+        let result = parse_message(":test.server.com TEST").unwrap();
 
-        assert_eq!("test.server.com", result.prefix.unwrap());
-        assert_eq!("TEST", result.command);
+        assert_eq!("test.server.com", result.raw_prefix().unwrap());
+        assert_eq!("TEST", result.raw_command());
     }
 
     #[test]
-    fn parsing_an_irc_message_with_suffix_should_give_the_suffix_and_command() {
-        let (result, _) = parse_message("TEST :test.server.com".as_bytes()).unwrap();
+    fn parsing_an_irc_message_with_suffix_arg_should_give_the_suffix_arg_and_command() {
+        let result = parse_message("TEST :test.server.com").unwrap();
 
-        assert_eq!("TEST", result.command);
-        assert_eq!("test.server.com", result.suffix.unwrap());
+        let expected_args = vec!["test.server.com"];
+        let actual_args: Vec<_> = result.raw_args().collect();
+
+        assert_eq!("TEST", result.raw_command());
+        assert_eq!(expected_args, actual_args);
     }
 
     #[test]
-    fn parsing_an_irc_message_with_prefix_and_suffix_should_give_the_prefix_suffix_and_command() {
-        let (result, _) = parse_message(":other.server.com TEST :test.server.com".as_bytes())
-            .unwrap();
+    fn parsing_an_irc_message_with_prefix_and_suffix_arg_should_give_the_prefix_suffix_arg_and_command() {
+        let result = parse_message(":other.server.com TEST :test.server.com").unwrap();
 
-        assert_eq!("other.server.com", result.prefix.unwrap());
-        assert_eq!("TEST", result.command);
-        assert_eq!("test.server.com", result.suffix.unwrap());
+        let expected_args = vec!["test.server.com"];
+        let actual_args: Vec<_> = result.raw_args().collect();
+
+        assert_eq!("other.server.com", result.raw_prefix().unwrap());
+        assert_eq!("TEST", result.raw_command());
+        assert_eq!(expected_args, actual_args);
     }
 
     #[test]
     fn parsing_an_irc_message_with_arguments_should_give_the_command_and_arguments() {
-        let (result, _) = parse_message("TEST a b c".as_bytes()).unwrap();
+        let result = parse_message("TEST a b c").unwrap();
 
-        assert_eq!("TEST", result.command);
-        assert_eq!(vec!["a", "b", "c"], result.args.unwrap());
+        let expected_args = vec!["a", "b", "c"];
+        let actual_args: Vec<_> = result.raw_args().collect();
+
+        assert_eq!("TEST", result.raw_command());
+        assert_eq!(expected_args, actual_args);
     }
 
     #[test]
-    fn parsing_an_irc_message_with_arguments_and_suffix_should_give_the_command_suffix_and_arguments
-        () {
-        let (result, _) = parse_message("TEST a b c :Memes for all!".as_bytes()).unwrap();
+    fn parsing_an_irc_message_with_arguments_and_suffix_arg_should_give_the_command_suffix_arg_and_arguments() {
+        let result = parse_message("TEST a b c :Memes for all!").unwrap();
+        let expected_args = vec!["a", "b", "c", "Memes for all!"];
+        let actual_args: Vec<_> = result.raw_args().collect();
 
-        assert_eq!("TEST", result.command);
-        assert_eq!(vec!["a", "b", "c"], result.args.unwrap());
-        assert_eq!("Memes for all!", result.suffix.unwrap());
+        assert_eq!("TEST", result.raw_command());
+        assert_eq!(expected_args, actual_args);
     }
 
     #[test]
     fn parsing_an_irc_message_with_tags_should_give_the_tags_and_command() {
-        use std::collections::HashMap;
+        let result = parse_message("@a=1;b=2;d=;a\\b=3;c= TEST").unwrap();
 
-        let (result, _) = parse_message("@a=1;b=2;a\\b=3 TEST".as_bytes()).unwrap();
+        let expected_tags = vec![("a", "1"), ("b", "2"), ("d", ""), ("a\\b", "3"), ("c", "")];
+        let actual_tags: Vec<_> = result.raw_tags().collect();
 
-        let expected_tags: HashMap<String, String> = [("a", "1"), ("b", "2"), ("a\\b", "3")]
-            .iter()
-            .map(|&(key, value)| (key.into(), value.into()))
-            .collect();
-
-        assert_eq!("TEST", result.command);
-        assert_eq!(expected_tags, result.tags.unwrap());
+        assert_eq!("TEST", result.raw_command());
+        assert_eq!(expected_tags, actual_tags);
     }
 
     #[test]
     fn messages_containing_multibyte_characters_can_be_parsed() {
-        let (result, _) = parse_message("TEST :💖".as_bytes()).unwrap();
+        let result = parse_message("TEST :💖 Love 💖 Memes 💖").unwrap();
 
-        const EXPECTED_RESULT: &'static str = "💖";
+        let expected_args = vec!["💖 Love 💖 Memes 💖"];
+        let actual_args: Vec<_> = result.raw_args().collect();
 
-        assert_eq!(EXPECTED_RESULT, result.suffix.unwrap());
+        assert_eq!(expected_args, actual_args);
     }
 }
