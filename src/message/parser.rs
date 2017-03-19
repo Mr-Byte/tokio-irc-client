@@ -1,184 +1,189 @@
+use message::{Message, TagRange};
+use error;
+
 use std::collections::HashMap;
-use super::Message;
-use super::super::error;
+use std::ops::Range;
 
-type ParseResult<'input, T> = error::Result<(T, &'input [u8])>;
+type ParseResult<'input, T> = error::Result<(T, &'input str)>;
 
-pub fn parse_message(input: &[u8]) -> ParseResult<Message> {
-    let (tags, input) = parse_tags(input)?;
-    let (prefix, input) = parse_prefix(input)?;
-    let (command, input) = parse_command(input)?;
-    let (args, input) = parse_args(input)?;
-    let (suffix, input) = parse_suffix(input)?;
+pub fn parse_message(message: String) -> error::Result<Message> {
+    //TODO: Fix the parser to return the appropriate ranges.
 
-    Ok((Message {
-            tags: tags,
-            prefix: prefix,
-            command: command,
-            args: args,
-            suffix: suffix,
-        },
-        input))
+    // let (tags, input) = parse_tags(&message)?;
+    // let (prefix, input) = parse_prefix(input)?;
+    // let (command, input) = parse_command(input)?;
+    // let (args, input) = parse_args(input)?;
+    // let (suffix, input) = parse_suffix(input)?;
+
+    // Ok(Message {
+    //     message: message,
+    //     tags: tags,
+    //     prefix: prefix,
+    //     command: command,
+    //     arguments: args,
+    // })
+
+    panic!("Not implemented.")
 }
 
-fn move_next(value: usize, bound: usize) -> error::Result<usize> {
-    let value = value + 1;
+// fn move_next(value: usize, bound: usize) -> error::Result<usize> {
+//     let value = value + 1;
 
-    if value >= bound {
-        Err(error::ErrorKind::UnexpectedEndOfInput.into())
-    } else {
-        Ok(value)
-    }
-}
+//     if value >= bound {
+//         Err(error::ErrorKind::UnexpectedEndOfInput.into())
+//     } else {
+//         Ok(value)
+//     }
+// }
 
-fn parse_tags(input: &[u8]) -> ParseResult<Option<HashMap<String, String>>> {
-    if input.is_empty() {
-        return Err(error::ErrorKind::UnexpectedEndOfInput.into());
-    }
+// fn parse_tags(input: &str) -> ParseResult<Option<Vec<TagRange>>> {
+//     if input.is_empty() {
+//         return Err(error::ErrorKind::UnexpectedEndOfInput.into());
+//     }
 
-    if input[0] == b'@' {
-        let len = input.len();
-        let mut tags = HashMap::new();
-        let mut remainder = move_next(0, len)?;
+//     if input[0] == b'@' {
+//         let len = input.len();
+//         let mut tags = HashMap::new();
+//         let mut remainder = move_next(0, len)?;
 
-        loop {
-            let key_start = remainder;
-            while input[remainder] != b'=' {
-                remainder = move_next(remainder, len)?;
-            }
+//         loop {
+//             let key_start = remainder;
+//             while input[remainder] != b'=' {
+//                 remainder = move_next(remainder, len)?;
+//             }
 
-            let key = String::from_utf8(input[key_start..remainder].to_vec())?;
+//             let key = String::from_utf8(input[key_start..remainder].to_vec())?;
 
-            remainder = move_next(remainder, len)?;
+//             remainder = move_next(remainder, len)?;
 
-            let value_start = remainder;
-            while input[remainder] != b';' && input[remainder] != b' ' {
-                remainder = move_next(remainder, len)?;
-            }
+//             let value_start = remainder;
+//             while input[remainder] != b';' && input[remainder] != b' ' {
+//                 remainder = move_next(remainder, len)?;
+//             }
 
-            let value = String::from_utf8(input[value_start..remainder].to_vec())?;
+//             let value = String::from_utf8(input[value_start..remainder].to_vec())?;
 
-            tags.insert(key, value);
+//             tags.insert(key, value);
 
-            if input[remainder] == b' ' {
-                remainder = move_next(remainder, len)?;
-                break;
-            }
+//             if input[remainder] == b' ' {
+//                 remainder = move_next(remainder, len)?;
+//                 break;
+//             }
 
-            remainder = move_next(remainder, len)?;
-        }
+//             remainder = move_next(remainder, len)?;
+//         }
 
-        Ok((Some(tags), &input[remainder..]))
-    } else {
-        Ok((None, input))
-    }
-}
+//         Ok((Some(tags), &input[remainder..]))
+//     } else {
+//         Ok((None, input))
+//     }
+// }
 
-fn parse_prefix(input: &[u8]) -> ParseResult<Option<String>> {
-    if input.is_empty() {
-        return Err(error::ErrorKind::UnexpectedEndOfInput.into());
-    }
+// fn parse_prefix(input: &str) -> ParseResult<Option<String>> {
+//     if input.is_empty() {
+//         return Err(error::ErrorKind::UnexpectedEndOfInput.into());
+//     }
 
-    if input[0] == b':' {
-        let len = input.len();
-        let mut remainder = move_next(0, len)?;
+//     if input[0] == b':' {
+//         let len = input.len();
+//         let mut remainder = move_next(0, len)?;
 
-        while input[remainder] != b' ' {
-            remainder = move_next(remainder, len)?;
-        }
+//         while input[remainder] != b' ' {
+//             remainder = move_next(remainder, len)?;
+//         }
 
-        let prefix = String::from_utf8(input[1..remainder].to_vec())?;
+//         let prefix = String::from_utf8(input[1..remainder].to_vec())?;
 
-        remainder = move_next(remainder, len)?;
+//         remainder = move_next(remainder, len)?;
 
-        Ok((Some(prefix), &input[remainder..]))
-    } else {
-        Ok((None, input))
-    }
-}
+//         Ok((Some(prefix), &input[remainder..]))
+//     } else {
+//         Ok((None, input))
+//     }
+// }
 
-fn parse_command(mut input: &[u8]) -> ParseResult<String> {
-    if input.is_empty() {
-        return Err(error::ErrorKind::UnexpectedEndOfInput.into());
-    }
+// fn parse_command(mut input: &str) -> ParseResult<Range<usize>> {
+//     if input.is_empty() {
+//         return Err(error::ErrorKind::UnexpectedEndOfInput.into());
+//     }
 
-    if input[0] == b' ' {
-        input = &input[1..]
-    }
+//     if &input[0..1] == " " {
+//         input = &input[1..]
+//     }
 
-    let mut remainder = 0;
-    let len = input.len();
+//     let mut remainder = 0;
+//     let len = input.len();
 
-    while remainder < len && input[remainder] != b' ' {
-        remainder += 1;
-    }
+//     while remainder < len && input[remainder] != b' ' {
+//         remainder += 1;
+//     }
 
-    let command = String::from_utf8(input[0..remainder].to_vec())?;
+//     let command = String::from_utf8(input[0..remainder].to_vec())?;
 
-    if remainder < len && input[remainder] == b' ' {
-        remainder = move_next(remainder, len)?;
-    }
+//     if remainder < len && input[remainder] == b' ' {
+//         remainder = move_next(remainder, len)?;
+//     }
 
-    Ok((command, &input[remainder..]))
-}
+//     Ok((command, &input[remainder..]))
+// }
 
-fn parse_args(input: &[u8]) -> ParseResult<Option<Vec<String>>> {
-    if input.is_empty() {
-        return Ok((None, input));
-    }
+// fn parse_args(input: &str) -> ParseResult<Option<Vec<String>>> {
+//     if input.is_empty() {
+//         return Ok((None, input));
+//     }
 
-    if input[0] == b':' {
-        return Ok((None, input));
-    }
+//     if input[0] == b':' {
+//         return Ok((None, input));
+//     }
 
-    let mut args = Vec::new();
-    let mut remainder = 0;
-    let mut arg_start = 0;
-    let len = input.len();
+//     let mut args = Vec::new();
+//     let mut remainder = 0;
+//     let mut arg_start = 0;
+//     let len = input.len();
 
-    loop {
-        if input[remainder] == b':' {
-            break;
-        }
+//     loop {
+//         if input[remainder] == b':' {
+//             break;
+//         }
 
-        if input[remainder] == b' ' {
-            let arg = String::from_utf8(input[arg_start..remainder].to_vec())?;
-            args.push(arg);
+//         if input[remainder] == b' ' {
+//             let arg = String::from_utf8(input[arg_start..remainder].to_vec())?;
+//             args.push(arg);
 
-            arg_start = remainder + 1;
-        }
+//             arg_start = remainder + 1;
+//         }
 
-        remainder += 1;
+//         remainder += 1;
 
-        if remainder >= len {
-            let arg = String::from_utf8(input[arg_start..remainder].to_vec())?;
-            args.push(arg);
-            break;
-        }
-    }
+//         if remainder >= len {
+//             let arg = String::from_utf8(input[arg_start..remainder].to_vec())?;
+//             args.push(arg);
+//             break;
+//         }
+//     }
 
-    Ok((Some(args), &input[remainder..]))
-}
+//     Ok((Some(args), &input[remainder..]))
+// }
 
-fn parse_suffix(mut input: &[u8]) -> ParseResult<Option<String>> {
-    if input.is_empty() {
-        return Ok((None, input));
-    }
+// fn parse_suffix(mut input: &str) -> ParseResult<Option<String>> {
+//     if input.is_empty() {
+//         return Ok((None, input));
+//     }
 
-    let len = input.len();
+//     let len = input.len();
 
-    if input[0] == b' ' {
-        input = &input[1..];
-    }
+//     if input[0] == b' ' {
+//         input = &input[1..];
+//     }
 
-    if len >= 2 && input[0] == b':' {
-        let suffix = String::from_utf8(input[1..len].to_vec())?;
+//     if len >= 2 && input[0] == b':' {
+//         let suffix = String::from_utf8(input[1..len].to_vec())?;
 
-        Ok((Some(suffix), &input[len..]))
-    } else {
-        Ok((None, input))
-    }
-}
+//         Ok((Some(suffix), &input[len..]))
+//     } else {
+//         Ok((None, input))
+//     }
+// }
 
 #[cfg(test)]
 mod tests {

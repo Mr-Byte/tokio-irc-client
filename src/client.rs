@@ -1,5 +1,6 @@
 use codec;
 use message::Message;
+use message::commands::{Ping, Pong};
 use message;
 use error::{Error, ErrorKind};
 
@@ -194,20 +195,21 @@ impl<T: AsyncRead + AsyncWrite> IrcTransport<T> {
 
     fn poll_next(&mut self) -> Poll<Option<Message>, Error> {
         loop {
-            match try_ready!(self.inner.poll()) {
-                Some(ref message) if message.command == COMMAND_PING => {
+            if let Some(message) = try_ready!(self.inner.poll()) {
+                if let Some(Ping(host)) = message.command::<Ping>() {
                     self.last_ping = time::Instant::now();
+                    let result = self.inner.start_send(Pong::new(host)?)?;
 
-                    if let Some(ref suffix) = message.suffix {
-                        let result = self.inner.start_send(message::pong(suffix.as_str()))?;
+                    assert!(result.is_ready());
 
-                        assert!(result.is_ready());
-
-                        self.inner.poll_complete()?;
-                    }
+                    self.inner.poll_complete()?;
+                    continue;
                 }
-                message => return Ok(Async::Ready(message)),
+
+                return Ok(Async::Ready(Some(message)));
             }
+
+            return Ok(Async::Ready(None));
         }
     }
 }
