@@ -39,8 +39,10 @@ extern crate native_tls;
 
 mod codec;
 pub mod error;
-pub mod client;
+pub mod commands;
+pub mod tags;
 pub mod message;
+pub mod client;
 
 pub use client::{Client, ClientConnectFuture, ClientConnectTlsFuture};
 pub use error::Error;
