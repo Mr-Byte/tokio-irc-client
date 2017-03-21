@@ -1,4 +1,4 @@
-use message::{Message, TagRange};
+use message::{Message, TagRange, PrefixRange};
 use error;
 
 use std::ops::Range;
@@ -49,7 +49,7 @@ fn parse_tags(input: &[u8]) -> ParseResult<Option<Vec<TagRange>>> {
 
         loop {
             let key_start = position;
-            while input[position] != b'=' {
+            while input[position] != b'=' && input[position] != b';' {
                 if input[position] == b' ' {
                     return Err(error::ErrorKind::UnexpectedEndOfInput.into());
                 }
@@ -58,15 +58,16 @@ fn parse_tags(input: &[u8]) -> ParseResult<Option<Vec<TagRange>>> {
             }
 
             let key_range = key_start..position;
-
-            position = move_next(position, len)?;
+            if input[position] == b'=' {             
+                position = move_next(position, len)?;
+            }
 
             let value_start = position;
             while input[position] != b';' && input[position] != b' ' {
                 position = move_next(position, len)?;
             }
 
-            let value_range = value_start..position;
+            let value_range = if value_start == position { None } else { Some(value_start..position) };
 
             tags.push(TagRange {
                 key: key_range,
@@ -87,22 +88,30 @@ fn parse_tags(input: &[u8]) -> ParseResult<Option<Vec<TagRange>>> {
     }
 }
 
-fn parse_prefix(input: &[u8], mut position: usize) -> ParseResult<Option<Range<usize>>> {
+fn parse_prefix(input: &[u8], mut position: usize) -> ParseResult<Option<PrefixRange>> {
     let len = input.len();
 
-    if input.is_empty() || position >= len {
+    if position >= len {
         return Err(error::ErrorKind::UnexpectedEndOfInput.into());
     }
 
     if input[position] == b':' {
         position = move_next(position, len)?;
         let prefix_start = position;
+        let mut user_delimeter_position = None;
+        let mut host_delimeter_position = None;
 
         while input[position] != b' ' {
+            if input[position] == b'!' {
+                user_delimeter_position = Some(position);
+            } else if input[position] == b'@' {
+                host_delimeter_position = Some(position);
+            }
+
             position = move_next(position, len)?;
         }
 
-        let prefix_range = prefix_start..position;
+        let prefix_range = PrefixRange(prefix_start..position, user_delimeter_position, host_delimeter_position);
 
         position = move_next(position, len)?;
 
@@ -114,7 +123,7 @@ fn parse_prefix(input: &[u8], mut position: usize) -> ParseResult<Option<Range<u
 
 fn parse_command(input: &[u8], mut position: usize) -> ParseResult<Range<usize>> {
     let len = input.len();
-    if input.is_empty() || position >= len {
+    if position >= len {
         return Err(error::ErrorKind::UnexpectedEndOfInput.into());
     }
 
@@ -140,7 +149,7 @@ fn parse_command(input: &[u8], mut position: usize) -> ParseResult<Range<usize>>
 fn parse_args(input: &[u8], mut position: usize) -> ParseResult<Option<Vec<Range<usize>>>> {
     let len = input.len();
 
-    if input.is_empty() || position >= len {
+    if position >= len {
         return Ok((None, position));
     }
 
@@ -238,9 +247,9 @@ mod tests {
 
     #[test]
     fn parsing_an_irc_message_with_tags_should_give_the_tags_and_command() {
-        let result = parse_message("@a=1;b=2;d=;a\\b=3;c= TEST").unwrap();
+        let result = parse_message("@a=1;b=2;d=;f;a\\b=3;c= TEST").unwrap();
 
-        let expected_tags = vec![("a", "1"), ("b", "2"), ("d", ""), ("a\\b", "3"), ("c", "")];
+        let expected_tags = vec![("a", Some("1")), ("b", Some("2")), ("d", None), ("f", None), ("a\\b", Some("3")), ("c", None)];
         let actual_tags: Vec<_> = result.raw_tags().collect();
 
         assert_eq!("TEST", result.raw_command());
@@ -255,5 +264,48 @@ mod tests {
         let actual_args: Vec<_> = result.raw_args().collect();
 
         assert_eq!(expected_args, actual_args);
+    }
+
+    #[test]
+    fn messages_with_prefix_and_no_user_nor_host_provides_just_prefix() {
+        let result = parse_message(":foo TEST").unwrap();
+
+        let prefix = result.prefix();
+
+        assert_eq!(Some(("foo", None, None)), prefix);
+    }
+
+    #[test]
+    fn messages_with_prefix_and_user_but_no_host_provides_prefix_and_user() {
+        let result = parse_message(":foo!foobert TEST").unwrap();
+
+        let prefix = result.prefix();
+
+        assert_eq!(Some(("foo", Some("foobert"), None)), prefix);
+    }
+
+    #[test]
+    fn messages_with_prefix_user_and_host_provides_prefix_user_and_host() {
+        let result = parse_message(":foo!foobert@host.test.com TEST").unwrap();
+
+        let prefix = result.prefix();
+
+        assert_eq!(Some(("foo", Some("foobert"), Some("host.test.com"))), prefix);
+    }
+
+    #[test]
+    fn messages_with_prefix_and_host_provides_prefix_and_host() {
+        let result = parse_message(":foo@host.test.com TEST").unwrap();
+
+        let prefix = result.prefix();
+
+        assert_eq!(Some(("foo", None, Some("host.test.com"))), prefix);
+    }
+
+    #[test]
+    fn messages_with_no_prefix_should_provide_no_prefix() {
+        let result = parse_message("TEST").unwrap();
+
+        assert_eq!(None, result.prefix());
     }
 }

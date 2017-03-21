@@ -7,11 +7,12 @@ use tags::Tag;
 
 mod parser;
 
-#[derive(PartialEq)]
 struct TagRange {
     key: Range<usize>,
-    value: Range<usize>,
+    value: Option<Range<usize>>,
 }
+
+struct PrefixRange(Range<usize>, Option<usize>, Option<usize>);
 
 /// An implementation of Iterator that iterates over the arguments of a `Message`.
 pub struct ArgumentIter<'a> {
@@ -35,11 +36,11 @@ pub struct TagIter<'a> {
 }
 
 impl<'a> Iterator for TagIter<'a> {
-    type Item = (&'a str, &'a str);
+    type Item = (&'a str, Option<&'a str>);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|tag_range| {
-            (&self.source[tag_range.key.clone()], &self.source[tag_range.value.clone()])
+            (&self.source[tag_range.key.clone()], tag_range.value.clone().map(|value| &self.source[value]))
         })
     }
 }
@@ -49,7 +50,7 @@ impl<'a> Iterator for TagIter<'a> {
 pub struct Message {
     message: String,
     tags: Option<Vec<TagRange>>,
-    prefix: Option<Range<usize>>,
+    prefix: Option<PrefixRange>,
     command: Range<usize>,
     arguments: Option<Vec<Range<usize>>>,
 }
@@ -64,13 +65,13 @@ impl Message {
 
     /// A strongly typed interface for determining the type of the command
     /// and retrieving the values of the command.
-    pub fn command<'a, T: Command<'a>>(&'a self) -> Option<T> {
+    pub fn command<'a, T>(&'a self) -> Option<T> where T : Command<'a> {
         <T as Command>::parse(self)
     }
 
     /// A strongly type way of accessing a specified tag associated with
     /// a message.
-    pub fn tag<'a, T: Tag<'a>>(&'a self) -> Option<T> {
+    pub fn tag<'a, T>(&'a self) -> Option<T> where T : Tag<'a> {
         for (key, value) in self.raw_tags() {
             if key == <T as Tag>::name() {
                 return <T as Tag>::parse(value);
@@ -78,6 +79,16 @@ impl Message {
         }
 
         None
+    }
+
+    pub fn prefix(&self) -> Option<(&str, Option<&str>, Option<&str>)> {
+        match self.prefix {
+            Some(PrefixRange(ref range, Some(user), Some(host))) => Some((&self.message[range.start..user], Some(&self.message[user+1..host]), Some(&self.message[host+1..range.end]))),
+            Some(PrefixRange(ref range, None, Some(host))) => Some((&self.message[range.start..host], None, Some(&self.message[host+1..range.end]))),
+            Some(PrefixRange(ref range, Some(user), None)) => Some((&self.message[range.start..user], Some(&self.message[user+1..range.end]), None)),
+            Some(PrefixRange(ref range, None, None)) => Some((&self.message[range.clone()], None, None)),
+            None => None
+        }
     }
 
     /// Get an iterator to the raw key/value pairs of tags associated with
@@ -98,7 +109,7 @@ impl Message {
 
     /// Attempt to get the raw prefix value associated with this message.
     pub fn raw_prefix(&self) -> Option<&str> {
-        if let Some(ref prefix) = self.prefix {
+        if let Some(PrefixRange(ref prefix, _, _)) = self.prefix {
             Some(&self.message[prefix.clone()])
         } else {
             None
