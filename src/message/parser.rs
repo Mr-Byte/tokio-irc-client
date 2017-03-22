@@ -69,10 +69,7 @@ fn parse_tags(input: &[u8]) -> ParseResult<Option<Vec<TagRange>>> {
 
             let value_range = if value_start == position { None } else { Some(value_start..position) };
 
-            tags.push(TagRange {
-                key: key_range,
-                value: value_range,
-            });
+            tags.push((key_range, value_range));
 
             if input[position] == b' ' {
                 position = move_next(position, len)?;

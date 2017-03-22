@@ -1,19 +1,56 @@
 use error::Result;
 use message::Message;
 
+use std::ops::Range;
+use std::slice::Iter;
+
+/// An implementation of Iterator that iterates over the arguments of a `Message`.
+pub struct ArgumentIter<'a> {
+    source: &'a str,
+    iter: Iter<'a, Range<usize>>,
+}
+
+impl<'a> ArgumentIter<'a> {
+    // This is intended for internal usage and thus hidden.
+    #[doc(hidden)]
+    pub fn new(source: &'a str, iter: Iter<'a, Range<usize>>) -> ArgumentIter<'a> {
+        ArgumentIter {
+            source: source,
+            iter: iter
+        }
+    }
+}
+
+impl<'a> Iterator for ArgumentIter<'a> {
+    type Item = &'a str;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|range| &self.source[range.clone()])
+    }
+}
+
 pub trait Command<'a> {
-    fn parse(message: &'a Message) -> Option<Self> where Self: Sized;
+    fn name() -> &'static str;
+    fn parse(arguments: ArgumentIter<'a>) -> Option<Self> where Self: Sized;
+
+    fn try_match(command: &str, arguments: ArgumentIter<'a>) -> Option<Self> where Self: Sized {
+        if command == Self::name() {
+            Self::parse(arguments)
+        } else {
+            None
+        }
+    }
 }
 
 pub struct Ping<'a>(pub &'a str);
 
 impl<'a> Command<'a> for Ping<'a> {
-    fn parse(message: &'a Message) -> Option<Ping<'a>> {
-        if message.raw_command() == "PING" {
-            message.raw_args().next().map(|suffix| Ping(suffix))
-        } else {
-            None
-        }
+    fn name() -> &'static str {
+        "PING"
+    }
+
+    fn parse(mut arguments: ArgumentIter<'a>) -> Option<Ping<'a>> {
+        arguments.next().map(|suffix| Ping(suffix))
     }
 }
 
@@ -24,12 +61,12 @@ pub fn ping<H: Into<String>>(host: H) -> Result<Message> {
 pub struct Pong<'a>(pub &'a str);
 
 impl<'a> Command<'a> for Pong<'a> {
-    fn parse(message: &'a Message) -> Option<Pong<'a>> {
-        if message.raw_command() == "PONG" {
-            message.raw_args().next().map(|suffix| Pong(suffix))
-        } else {
-            None
-        }
+    fn name() -> &'static str {
+        "PONG"
+    }
+
+    fn parse(mut arguments: ArgumentIter<'a>) -> Option<Pong<'a>> {
+        arguments.next().map(|suffix| Pong(suffix))
     }
 }
 
@@ -60,13 +97,12 @@ pub fn join<C: Into<String>>(channel: C) -> Result<Message> {
 pub struct Privmsg<'a>(pub &'a str, pub &'a str);
 
 impl<'a> Command<'a> for Privmsg<'a> {
-    fn parse(message: &'a Message) -> Option<Privmsg<'a>> {
-        if message.raw_command() == "PRIVMSG" {
-            let mut args = message.raw_args();
-            args.next().and_then(|target| args.next().map(|suffix| Privmsg(target, suffix)))
-        } else {
-            None
-        }
+    fn name() -> &'static str {
+        "PRIVMSG"
+    }
+
+    fn parse(mut arguments: ArgumentIter<'a>) -> Option<Privmsg<'a>> {
+        arguments.next().and_then(|target| arguments.next().map(|suffix| Privmsg(target, suffix)))
     }
 }
 

@@ -1,16 +1,10 @@
 use std::ops::Range;
-use std::slice::Iter;
 
 use error::Result;
-use commands::Command;
-use tags::Tag;
+use commands::{Command, ArgumentIter};
+use tags::{Tag, TagIter};
 
 mod parser;
-
-struct TagRange {
-    key: Range<usize>,
-    value: Option<Range<usize>>,
-}
 
 struct PrefixRange {
     raw_prefix: Range<usize>,
@@ -19,36 +13,7 @@ struct PrefixRange {
     host: Option<Range<usize>>
 }
 
-/// An implementation of Iterator that iterates over the arguments of a `Message`.
-pub struct ArgumentIter<'a> {
-    source: &'a str,
-    iter: Iter<'a, Range<usize>>,
-}
-
-impl<'a> Iterator for ArgumentIter<'a> {
-    type Item = &'a str;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|range| &self.source[range.clone()])
-    }
-}
-
-/// An implementation of Iterator that iterates over the key/value pairs 
-/// (in the form of a tuple) of the tags of a `Message`.
-pub struct TagIter<'a> {
-    source: &'a str,
-    iter: Iter<'a, TagRange>,
-}
-
-impl<'a> Iterator for TagIter<'a> {
-    type Item = (&'a str, Option<&'a str>);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|tag_range| {
-            (&self.source[tag_range.key.clone()], tag_range.value.clone().map(|value| &self.source[value]))
-        })
-    }
-}
+type TagRange = (Range<usize>, Option<Range<usize>>);
 
 /// Representation of IRC messages that splits a message into its constituent
 /// parts specified in RFC1459 and the IRCv3 spec.
@@ -71,19 +36,13 @@ impl Message {
     /// A strongly typed interface for determining the type of the command
     /// and retrieving the values of the command.
     pub fn command<'a, T>(&'a self) -> Option<T> where T : Command<'a> {
-        <T as Command>::parse(self)
+        <T as Command>::try_match(self.raw_command(), self.raw_args())
     }
 
     /// A strongly type way of accessing a specified tag associated with
     /// a message.
     pub fn tag<'a, T>(&'a self) -> Option<T> where T : Tag<'a> {
-        for (key, value) in self.raw_tags() {
-            if key == <T as Tag>::name() {
-                return <T as Tag>::parse(value);
-            }
-        }
-
-        None
+        <T as Tag>::try_match(self.raw_tags())
     }
 
     /// Retrieves the prefix for this message, if there is one.  If there is either
@@ -103,15 +62,9 @@ impl Message {
     /// this message.
     pub fn raw_tags(&self) -> TagIter {
         if let Some(ref tags) = self.tags {
-            TagIter {
-                source: &self.message,
-                iter: tags.iter(),
-            }
+            TagIter::new(&self.message, tags.iter())
         } else {
-            TagIter {
-                source: &self.message,
-                iter: [].iter(),
-            }
+            TagIter::new(&self.message, [].iter())
         }
     }
 
@@ -132,15 +85,9 @@ impl Message {
     /// Get an iterator to the raw arguments associated with this message.
     pub fn raw_args(&self) -> ArgumentIter {
         if let Some(ref arguments) = self.arguments {
-            ArgumentIter {
-                source: &self.message,
-                iter: arguments.iter(),
-            }
+            ArgumentIter::new(&self.message, arguments.iter())
         } else {
-            ArgumentIter {
-                source: &self.message,
-                iter: [].iter(),
-            }
+            ArgumentIter::new(&self.message, [].iter())
         }
     }
 
