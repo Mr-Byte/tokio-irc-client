@@ -98,20 +98,43 @@ fn parse_prefix(input: &[u8], mut position: usize) -> ParseResult<Option<PrefixR
     if input[position] == b':' {
         position = move_next(position, len)?;
         let prefix_start = position;
-        let mut user_delimeter_position = None;
-        let mut host_delimeter_position = None;
 
-        while input[position] != b' ' {
-            if input[position] == b'!' {
-                user_delimeter_position = Some(position);
-            } else if input[position] == b'@' {
-                host_delimeter_position = Some(position);
-            }
-
+        while input[position] != b' ' && input[position] != b'!' && input[position] != b'@' {
             position = move_next(position, len)?;
         }
 
-        let prefix_range = PrefixRange(prefix_start..position, user_delimeter_position, host_delimeter_position);
+        let prefix_range = prefix_start..position;
+
+        let mut user_range = None;
+        if input[position] == b'!' {
+            position = move_next(position, len)?;
+            let user_start = position;
+
+            while input[position] != b' ' && input[position] != b'@' {
+                position = move_next(position, len)?;
+            }
+
+            user_range = Some(user_start..position);
+        }
+
+        let mut host_range = None;
+        if input[position] == b'@' {
+            position = move_next(position, len)?;
+            let host_start = position;
+
+            while input[position] != b' ' {
+                position = move_next(position, len)?;
+            }
+
+            host_range = Some(host_start..position);
+        }        
+
+        let prefix_range = PrefixRange {
+            raw_prefix: prefix_start..position,
+            prefix: prefix_range,
+            user: user_range,
+            host: host_range
+        };
 
         position = move_next(position, len)?;
 

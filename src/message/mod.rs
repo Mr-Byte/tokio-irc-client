@@ -12,7 +12,12 @@ struct TagRange {
     value: Option<Range<usize>>,
 }
 
-struct PrefixRange(Range<usize>, Option<usize>, Option<usize>);
+struct PrefixRange {
+    raw_prefix: Range<usize>,
+    prefix: Range<usize>,
+    user: Option<Range<usize>>, 
+    host: Option<Range<usize>>
+}
 
 /// An implementation of Iterator that iterates over the arguments of a `Message`.
 pub struct ArgumentIter<'a> {
@@ -82,12 +87,13 @@ impl Message {
     }
 
     pub fn prefix(&self) -> Option<(&str, Option<&str>, Option<&str>)> {
-        match self.prefix {
-            Some(PrefixRange(ref range, Some(user), Some(host))) => Some((&self.message[range.start..user], Some(&self.message[user+1..host]), Some(&self.message[host+1..range.end]))),
-            Some(PrefixRange(ref range, None, Some(host))) => Some((&self.message[range.start..host], None, Some(&self.message[host+1..range.end]))),
-            Some(PrefixRange(ref range, Some(user), None)) => Some((&self.message[range.start..user], Some(&self.message[user+1..range.end]), None)),
-            Some(PrefixRange(ref range, None, None)) => Some((&self.message[range.clone()], None, None)),
-            None => None
+        if let Some(ref prefix_range) = self.prefix {
+            let user = prefix_range.user.clone().map(|user| &self.message[user]);
+            let host = prefix_range.host.clone().map(|host| &self.message[host]);
+
+            Some((&self.message[prefix_range.prefix.clone()], user, host))
+        } else {
+            None
         }
     }
 
@@ -109,8 +115,8 @@ impl Message {
 
     /// Attempt to get the raw prefix value associated with this message.
     pub fn raw_prefix(&self) -> Option<&str> {
-        if let Some(PrefixRange(ref prefix, _, _)) = self.prefix {
-            Some(&self.message[prefix.clone()])
+        if let Some(ref prefix_range) = self.prefix {
+            Some(&self.message[prefix_range.raw_prefix.clone()])
         } else {
             None
         }
