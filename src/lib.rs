@@ -39,8 +39,8 @@ extern crate native_tls;
 
 mod codec;
 pub mod error;
-pub mod commands;
-pub mod tags;
+pub mod command;
+pub mod tag;
 pub mod message;
 pub mod client;
 

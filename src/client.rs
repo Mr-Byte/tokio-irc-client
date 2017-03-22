@@ -1,7 +1,7 @@
 use codec;
 use message::Message;
-use commands::Ping;
-use commands;
+use message;
+use command::Ping;
 use error::{Error, ErrorKind};
 
 use futures::{Future, Sink, Stream, Poll, StartSend, Async};
@@ -197,7 +197,7 @@ impl<T: AsyncRead + AsyncWrite> IrcTransport<T> {
             if let Some(message) = try_ready!(self.inner.poll()) {
                 if let Some(Ping(host)) = message.command::<Ping>() {
                     self.last_ping = time::Instant::now();
-                    let result = self.inner.start_send(commands::pong(host)?)?;
+                    let result = self.inner.start_send(message::pong(host)?)?;
 
                     assert!(result.is_ready());
 

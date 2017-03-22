@@ -7,10 +7,12 @@ use tokio_core::reactor::Core;
 use futures::future::Future;
 use futures::Stream;
 use futures::Sink;
+use futures::stream;
 
 use tokio_irc_client::Client;
-use tokio_irc_client::commands;
-use tokio_irc_client::commands::Privmsg;
+use tokio_irc_client::message;
+use tokio_irc_client::command::Privmsg;
+use tokio_irc_client::error::Result;
 
 fn main() {
     // Create the event loop
@@ -25,15 +27,14 @@ fn main() {
     // followed by a USER message
     let client = Client::new(addr)
         .connect(&handle).and_then(|irc| {
-            irc.send(commands::nick("RustBot").unwrap())
-        }).and_then(|irc| {
-            irc.send(commands::user("RustBot", "Example bot written in Rust").unwrap())
-        }).and_then(|irc| {
-            // After that, we can send the JOIN message to join a channel and
-            // start getting messages from it. The library handles the PINGs
-            // for us so we can stay connected
-            irc.send(commands::join("#programming").unwrap())
-        }).and_then(|irc| {
+            let connect_sequence: Vec<Result<_>> = vec! [
+                message::nick("RustBot"),
+                message::user("RustBot", "Example bot written in Rust"),
+                message::join("#prograaming")
+            ];
+
+            irc.send_all(stream::iter(connect_sequence))
+        }).and_then(|(irc, _)| {
             // We iterate over the IRC connection, giving us all the packets
             // Checking if the command is PRIVMSG allows us to print just the
             // messages

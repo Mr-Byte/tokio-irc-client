@@ -1,8 +1,8 @@
 use std::ops::Range;
 
 use error::Result;
-use commands::{Command, ArgumentIter};
-use tags::{Tag, TagIter};
+use command::{Command, ArgumentIter};
+use tag::{Tag, TagIter};
 
 mod parser;
 
@@ -95,4 +95,36 @@ impl Message {
     pub fn raw_message(&self) -> &str {
         &self.message
     }
+}
+
+pub fn ping<H: Into<String>>(host: H) -> Result<Message> {
+    Message::try_from(format!("PING :{}", host.into()))
+}
+
+pub fn pong<H: Into<String>>(host: H) -> Result<Message> {
+    Message::try_from(format!("PONG {}", host.into()))
+}
+
+pub fn pass<P: Into<String>>(pass: P) -> Result<Message> {
+    Message::try_from(format!("PASS {}", pass.into()))
+}
+
+pub fn nick<N: Into<String>>(nick: N) -> Result<Message> {
+    Message::try_from(format!("NICK {}", nick.into()))
+}
+
+pub fn user<U: Into<String>, N: Into<String>>(username: U, real_name: N) -> Result<Message> {
+    Message::try_from(format!("USER {} 0 * :{}", username.into(), real_name.into()))
+}
+
+pub fn cap_req<C: Into<String>>(cap: C) -> Result<Message> {
+    Message::try_from(format!("CAP REQ :{}", cap.into()))
+}
+
+pub fn join<C: Into<String>>(channel: C) -> Result<Message> {
+    Message::try_from(format!("JOIN {}", channel.into()))
+}
+
+pub fn privmsg<T: Into<String>, M: Into<String>>(targets: T, message: M) -> Result<Message> {
+    Message::try_from(format!("PRIVMSG {} :{}", targets.into(), message.into()))
 }

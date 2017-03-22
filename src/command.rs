@@ -1,6 +1,3 @@
-use error::Result;
-use message::Message;
-
 use std::ops::Range;
 use std::slice::Iter;
 
@@ -54,10 +51,6 @@ impl<'a> Command<'a> for Ping<'a> {
     }
 }
 
-pub fn ping<H: Into<String>>(host: H) -> Result<Message> {
-    Message::try_from(format!("PING :{}", host.into()))
-}
-
 pub struct Pong<'a>(pub &'a str);
 
 impl<'a> Command<'a> for Pong<'a> {
@@ -68,30 +61,6 @@ impl<'a> Command<'a> for Pong<'a> {
     fn parse(mut arguments: ArgumentIter<'a>) -> Option<Pong<'a>> {
         arguments.next().map(|suffix| Pong(suffix))
     }
-}
-
-pub fn pong<H: Into<String>>(host: H) -> Result<Message> {
-    Message::try_from(format!("PONG {}", host.into()))
-}
-
-pub fn pass<P: Into<String>>(pass: P) -> Result<Message> {
-    Message::try_from(format!("PASS {}", pass.into()))
-}
-
-pub fn nick<N: Into<String>>(nick: N) -> Result<Message> {
-    Message::try_from(format!("NICK {}", nick.into()))
-}
-
-pub fn user<U: Into<String>, N: Into<String>>(username: U, real_name: N) -> Result<Message> {
-    Message::try_from(format!("USER {} 0 * :{}", username.into(), real_name.into()))
-}
-
-pub fn cap_req<C: Into<String>>(cap: C) -> Result<Message> {
-    Message::try_from(format!("CAP REQ :{}", cap.into()))
-}
-
-pub fn join<C: Into<String>>(channel: C) -> Result<Message> {
-    Message::try_from(format!("JOIN {}", channel.into()))
 }
 
 pub struct Privmsg<'a>(pub &'a str, pub &'a str);
@@ -106,13 +75,10 @@ impl<'a> Command<'a> for Privmsg<'a> {
     }
 }
 
-pub fn privmsg<T: Into<String>, M: Into<String>>(targets: T, message: M) -> Result<Message> {
-    Message::try_from(format!("PRIVMSG {} :{}", targets.into(), message.into()))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use message::*;
 
     #[test]
     fn test_ping_command() {
