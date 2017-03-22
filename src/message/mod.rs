@@ -86,6 +86,8 @@ impl Message {
         None
     }
 
+    /// Retrieves the prefix for this message, if there is one.  If there is either
+    /// a user or host associated with the prefix, it will also return those.
     pub fn prefix(&self) -> Option<(&str, Option<&str>, Option<&str>)> {
         if let Some(ref prefix_range) = self.prefix {
             let user = prefix_range.user.clone().map(|user| &self.message[user]);
