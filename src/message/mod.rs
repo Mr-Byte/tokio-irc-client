@@ -97,34 +97,42 @@ impl Message {
     }
 }
 
+/// Constructs a message containing a PING command targeting the specified host.
 pub fn ping<H: Into<String>>(host: H) -> Result<Message> {
     Message::try_from(format!("PING :{}", host.into()))
 }
 
+/// Constructs a message containing a PONG command targeting the specified host.
 pub fn pong<H: Into<String>>(host: H) -> Result<Message> {
     Message::try_from(format!("PONG {}", host.into()))
 }
 
+/// Constructs a message containing a PASS command with the specified password.
 pub fn pass<P: Into<String>>(pass: P) -> Result<Message> {
     Message::try_from(format!("PASS {}", pass.into()))
 }
 
+/// Constructs a message containing a NICK command with the specified nickname.
 pub fn nick<N: Into<String>>(nick: N) -> Result<Message> {
     Message::try_from(format!("NICK {}", nick.into()))
 }
 
+/// Constructs a message containing a USER command with the specified username and real name.
 pub fn user<U: Into<String>, N: Into<String>>(username: U, real_name: N) -> Result<Message> {
     Message::try_from(format!("USER {} 0 * :{}", username.into(), real_name.into()))
 }
 
+/// Constructs a message containing an IRCv3 CAP REQ command for the specified capability.
 pub fn cap_req<C: Into<String>>(cap: C) -> Result<Message> {
     Message::try_from(format!("CAP REQ :{}", cap.into()))
 }
 
+/// Constructs a message containing a JOIN command for the specified channel.
 pub fn join<C: Into<String>>(channel: C) -> Result<Message> {
     Message::try_from(format!("JOIN {}", channel.into()))
 }
 
+/// Constructs a message containing a PRIVMSG command sent to the specified targets with the given message.
 pub fn privmsg<T: Into<String>, M: Into<String>>(targets: T, message: M) -> Result<Message> {
     Message::try_from(format!("PRIVMSG {} :{}", targets.into(), message.into()))
 }

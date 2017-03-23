@@ -12,7 +12,6 @@ use futures::stream;
 use tokio_irc_client::Client;
 use tokio_irc_client::message;
 use tokio_irc_client::command::Privmsg;
-use tokio_irc_client::error::Result;
 
 fn main() {
     // Create the event loop
@@ -27,7 +26,7 @@ fn main() {
     // followed by a USER message
     let client = Client::new(addr)
         .connect(&handle).and_then(|irc| {
-            let connect_sequence: Vec<Result<_>> = vec! [
+            let connect_sequence = vec! [
                 message::nick("RustBot"),
                 message::user("RustBot", "Example bot written in Rust"),
                 message::join("#prograaming")

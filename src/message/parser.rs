@@ -11,9 +11,20 @@ pub fn parse_message<M: Into<String>>(message: M) -> error::Result<Message> {
     let (tags, prefix, command, args) = {
         let input = message.as_bytes();
         let (tags, position) = parse_tags(input)?;
+
+        let tags_end = position;
+
+        if tags_end >= 512 {
+            return Err(error::ErrorKind::InputTooLong("The tags length exceeded 512 bytes.".to_owned()).into());
+        }        
+
         let (prefix, position) = parse_prefix(input, position)?;
         let (command, position) = parse_command(input, position)?;
-        let (args, _) = parse_args(input, position)?;
+        let (args, position) = parse_args(input, position)?;
+
+        if (position - tags_end) >= 512 {
+            return Err(error::ErrorKind::InputTooLong("The message length exceeded 512 bytes.".to_owned()).into());
+        }
 
         (tags, prefix, command, args)
     };
@@ -204,17 +215,16 @@ fn parse_args(input: &[u8], mut position: usize) -> ParseResult<Option<Vec<Range
 mod tests {
     use super::*;
 
-    // TODO: Test this more thoroughly
-
     #[test]
-    fn parsing_an_irc_message_with_just_command_should_give_the_command() {
+    fn parse_command() {
         let result = parse_message("TEST").unwrap();
 
+        assert_eq!(None, result.prefix());
         assert_eq!("TEST", result.raw_command());
     }
 
     #[test]
-    fn parsing_an_irc_message_with_prefix_should_give_the_prefix_and_command() {
+    fn parse_command_with_prefix() {
         let result = parse_message(":test.server.com TEST").unwrap();
 
         assert_eq!("test.server.com", result.raw_prefix().unwrap());
@@ -222,7 +232,7 @@ mod tests {
     }
 
     #[test]
-    fn parsing_an_irc_message_with_suffix_arg_should_give_the_suffix_arg_and_command() {
+    fn parse_command_with_argument_following_colon() {
         let result = parse_message("TEST :test.server.com").unwrap();
 
         let expected_args = vec!["test.server.com"];
@@ -233,7 +243,7 @@ mod tests {
     }
 
     #[test]
-    fn parsing_an_irc_message_with_prefix_and_suffix_arg_should_give_the_prefix_suffix_arg_and_command() {
+    fn parse_command_with_prefix_and_argument_following_colon() {
         let result = parse_message(":other.server.com TEST :test.server.com").unwrap();
 
         let expected_args = vec!["test.server.com"];
@@ -245,7 +255,7 @@ mod tests {
     }
 
     #[test]
-    fn parsing_an_irc_message_with_arguments_should_give_the_command_and_arguments() {
+    fn parse_command_with_multiple_arguments() {
         let result = parse_message("TEST a b c").unwrap();
 
         let expected_args = vec!["a", "b", "c"];
@@ -256,7 +266,7 @@ mod tests {
     }
 
     #[test]
-    fn parsing_an_irc_message_with_arguments_and_suffix_arg_should_give_the_command_suffix_arg_and_arguments() {
+    fn parse_command_with_multiple_arguments_and_argument_following_colon() {
         let result = parse_message("TEST a b c :Memes for all!").unwrap();
         let expected_args = vec!["a", "b", "c", "Memes for all!"];
         let actual_args: Vec<_> = result.raw_args().collect();
@@ -266,7 +276,7 @@ mod tests {
     }
 
     #[test]
-    fn parsing_an_irc_message_with_tags_should_give_the_tags_and_command() {
+    fn parse_command_with_multiple_tags() {
         let result = parse_message("@a=1;b=2;d=;f;a\\b=3;c= TEST").unwrap();
 
         let expected_tags = vec![("a", Some("1")), ("b", Some("2")), ("d", None), ("f", None), ("a\\b", Some("3")), ("c", None)];
@@ -277,7 +287,7 @@ mod tests {
     }
 
     #[test]
-    fn messages_containing_multibyte_characters_can_be_parsed() {
+    fn parse_command_with_multibyte_character_arguments() {
         let result = parse_message("TEST :💖 Love 💖 Memes 💖").unwrap();
 
         let expected_args = vec!["💖 Love 💖 Memes 💖"];
@@ -287,7 +297,7 @@ mod tests {
     }
 
     #[test]
-    fn messages_with_prefix_and_no_user_nor_host_provides_just_prefix() {
+    fn parse_command_with_basic_prefix() {
         let result = parse_message(":foo TEST").unwrap();
 
         let prefix = result.prefix();
@@ -296,7 +306,7 @@ mod tests {
     }
 
     #[test]
-    fn messages_with_prefix_and_user_but_no_host_provides_prefix_and_user() {
+    fn parse_command_with_user_prefix() {
         let result = parse_message(":foo!foobert TEST").unwrap();
 
         let prefix = result.prefix();
@@ -305,7 +315,7 @@ mod tests {
     }
 
     #[test]
-    fn messages_with_prefix_user_and_host_provides_prefix_user_and_host() {
+    fn parse_command_with_user_prefix_and_host() {
         let result = parse_message(":foo!foobert@host.test.com TEST").unwrap();
 
         let prefix = result.prefix();
@@ -314,18 +324,11 @@ mod tests {
     }
 
     #[test]
-    fn messages_with_prefix_and_host_provides_prefix_and_host() {
+    fn parse_command_with_preefix_and_host() {
         let result = parse_message(":foo@host.test.com TEST").unwrap();
 
         let prefix = result.prefix();
 
         assert_eq!(Some(("foo", None, Some("host.test.com"))), prefix);
-    }
-
-    #[test]
-    fn messages_with_no_prefix_should_provide_no_prefix() {
-        let result = parse_message("TEST").unwrap();
-
-        assert_eq!(None, result.prefix());
     }
 }
