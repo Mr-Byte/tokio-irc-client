@@ -1,3 +1,6 @@
+//! The command module contains everything needed to perform strongly typed access
+//! to commands associated with a message.
+
 use std::ops::Range;
 use std::slice::Iter;
 
@@ -26,10 +29,19 @@ impl<'a> Iterator for ArgumentIter<'a> {
     }
 }
 
+/// The `Command` trait is a trait that's implemented by types wishing to provide command
+/// parsing capability for usage with the `Message::command` method.
 pub trait Command<'a> {
+    /// Provides the name of the command to be matched. Examples include `PRIVMSG` or `PING`.
     fn name() -> &'static str;
+
+    /// This method takes in an iterator of arguments associated with a `Message` and attempts
+    /// to parse the arguments into a matched `Command`.  If no match is found, None is returned.
     fn parse(arguments: ArgumentIter<'a>) -> Option<Self> where Self: Sized;
 
+    /// A default implementation that takes in the given command name and arguments and attempts to match
+    /// the command and parse the arguments into a strongly typed representation. If there is no match
+    /// or the parse fails, it returns `None`.
     fn try_match(command: &str, arguments: ArgumentIter<'a>) -> Option<Self> where Self: Sized {
         if command == Self::name() {
             Self::parse(arguments)
@@ -39,6 +51,7 @@ pub trait Command<'a> {
     }
 }
 
+/// Represents a PING command.  The first element is the host.
 pub struct Ping<'a>(pub &'a str);
 
 impl<'a> Command<'a> for Ping<'a> {
@@ -51,6 +64,7 @@ impl<'a> Command<'a> for Ping<'a> {
     }
 }
 
+/// Represents a PONG command. The first element is the host.
 pub struct Pong<'a>(pub &'a str);
 
 impl<'a> Command<'a> for Pong<'a> {
@@ -63,6 +77,8 @@ impl<'a> Command<'a> for Pong<'a> {
     }
 }
 
+/// Represents a PONG command.  The first element is the target of the message and
+/// the second eleement is the message.
 pub struct Privmsg<'a>(pub &'a str, pub &'a str);
 
 impl<'a> Command<'a> for Privmsg<'a> {

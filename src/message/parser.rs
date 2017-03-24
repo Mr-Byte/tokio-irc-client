@@ -279,7 +279,15 @@ mod tests {
     fn parse_command_with_multiple_tags() {
         let result = parse_message("@a=1;b=2;d=;f;a\\b=3;c= TEST").unwrap();
 
-        let expected_tags = vec![("a", Some("1")), ("b", Some("2")), ("d", None), ("f", None), ("a\\b", Some("3")), ("c", None)];
+        let expected_tags = vec![
+            ("a", Some("1")),
+            ("b", Some("2")),
+            ("d", None),
+            ("f", None),
+            ("a\\b", Some("3")),
+            ("c", None)
+        ];
+        
         let actual_tags: Vec<_> = result.raw_tags().collect();
 
         assert_eq!("TEST", result.raw_command());

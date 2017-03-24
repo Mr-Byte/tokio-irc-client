@@ -1,3 +1,6 @@
+// TODO: Come back and document this.
+#![allow(missing_docs)]
+
 error_chain! {
     foreign_links {
         Io(::std::io::Error);

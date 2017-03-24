@@ -1,3 +1,6 @@
+//! The client module contains all types needed to make a connection
+//! to a remote IRC host.
+
 use codec;
 use message::Message;
 use message;
@@ -20,8 +23,6 @@ use std::net::SocketAddr;
 use std::time;
 
 const PING_TIMEOUT_IN_SECONDS: u64 = 10 * 60;
-
-pub type IrcFramedStream<T> where T: AsyncRead + AsyncWrite = Framed<T, codec::IrcCodec>;
 
 /// A light-weight client type for establishing connections to remote servers.
 /// This type consumes a given `SocketAddr` and provides several methods for
@@ -104,7 +105,7 @@ impl Future for ClientConnectFuture {
     type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let framed: IrcFramedStream<_> = try_ready!(self.inner.poll()).framed(codec::IrcCodec);
+        let framed = try_ready!(self.inner.poll()).framed(codec::IrcCodec);
         let irc_transport = IrcTransport::new(framed);
 
         Ok(Async::Ready(irc_transport))
@@ -115,8 +116,11 @@ impl Future for ClientConnectFuture {
 /// that can be used to receive `Message` from the server and send `Message`
 /// to the server.
 pub enum ClientConnectTlsFuture {
+    #[doc(hidden)]
     TlsErr(Error),
+    #[doc(hidden)]
     TcpConnecting(TcpStreamNew, TlsConnector, String),
+    #[doc(hidden)]
     TlsHandshake(ConnectAsync<TcpStream>),
 }
 
@@ -175,24 +179,30 @@ impl Future for ClientConnectTlsFuture {
 ///
 /// It is possible to split `IrcTransport` into `Stream` and `Sink` via the
 /// the `split` method.
-pub struct IrcTransport<T: AsyncRead + AsyncWrite> {
-    inner: IrcFramedStream<T>,
+pub struct IrcTransport<T> where T: AsyncRead + AsyncWrite {
+    inner: Framed<T, codec::IrcCodec>,
     last_ping: time::Instant,
 }
 
-impl<T: AsyncRead + AsyncWrite> IrcTransport<T> {
-    fn new(inner: IrcFramedStream<T>) -> IrcTransport<T> {
+impl<T> IrcTransport<T> where T: AsyncRead + AsyncWrite {
+    fn new(inner: Framed<T, codec::IrcCodec>) -> IrcTransport<T> {
         IrcTransport {
             inner: inner,
             last_ping: time::Instant::now(),
         }
     }
+}
 
-    fn ping_timed_out(&self) -> bool {
-        self.last_ping.elapsed().as_secs() >= PING_TIMEOUT_IN_SECONDS
-    }
+impl<T> Stream for IrcTransport<T> where T: AsyncRead + AsyncWrite  {
+    type Item = Message;
+    type Error = Error;
 
-    fn poll_next(&mut self) -> Poll<Option<Message>, Error> {
+    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+        if self.last_ping.elapsed().as_secs() >= PING_TIMEOUT_IN_SECONDS {
+            self.inner.close()?;
+            return Err(ErrorKind::ConnectionReset.into());
+        }
+
         loop {
             if let Some(message) = try_ready!(self.inner.poll()) {
                 if let Some(Ping(host)) = message.command::<Ping>() {
@@ -213,35 +223,7 @@ impl<T: AsyncRead + AsyncWrite> IrcTransport<T> {
     }
 }
 
-impl Stream for IrcTransport<TcpStream> {
-    type Item = Message;
-    type Error = Error;
-
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        if self.ping_timed_out() {
-            self.inner.close()?;
-            return Err(ErrorKind::ConnectionReset.into());
-        }
-
-        self.poll_next()
-    }
-}
-
-impl Stream for IrcTransport<TlsStream<TcpStream>> {
-    type Item = Message;
-    type Error = Error;
-
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        if self.ping_timed_out() {
-            self.inner.close()?;
-            return Err(ErrorKind::ConnectionReset.into());
-        }
-
-        self.poll_next()
-    }
-}
-
-impl<T: AsyncRead + AsyncWrite> Sink for IrcTransport<T> {
+impl<T> Sink for IrcTransport<T> where T: AsyncRead + AsyncWrite {
     type SinkItem = Message;
     type SinkError = Error;
 

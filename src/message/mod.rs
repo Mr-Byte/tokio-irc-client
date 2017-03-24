@@ -1,3 +1,9 @@
+//! The message module contains the `Message` struct which represents an
+//! IRC message either being received from the server or sent by the client.
+//!
+//! The module also contains several constructor methods for constructing
+//! messages to be sent to the server.
+
 use std::ops::Range;
 
 use error::Result;
