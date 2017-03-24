@@ -6,6 +6,7 @@ use std::slice::Iter;
 
 /// An implementation of Iterator that iterates over the key/value pairs 
 /// (in the form of a tuple) of the tags of a `Message`.
+#[derive(Clone)]
 pub struct TagIter<'a> {
     source: &'a str,
     iter: Iter<'a, (Range<usize>, Option<Range<usize>>)>,
@@ -45,13 +46,8 @@ pub trait Tag<'a> {
 
     /// A default implementation that searches for a tag with the associated name and
     /// attempts to parse it.
-    fn try_match(tags: TagIter<'a>) -> Option<Self> where Self: Sized {
-        for (key, value) in tags {
-            if key == Self::name() {
-                return Self::parse(value);
-            }
-        }
-
-        None
+    fn try_match(mut tags: TagIter<'a>) -> Option<Self> where Self: Sized {
+        tags.find(|&(key, _)| key == Self::name())
+            .and_then(|(_, value)| Self::parse(value))
     }
 }

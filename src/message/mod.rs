@@ -12,6 +12,7 @@ use tag::{Tag, TagIter};
 
 mod parser;
 
+#[derive(Clone, PartialEq, Eq)]
 struct PrefixRange {
     raw_prefix: Range<usize>,
     prefix: Range<usize>,
@@ -23,6 +24,7 @@ type TagRange = (Range<usize>, Option<Range<usize>>);
 
 /// Representation of IRC messages that splits a message into its constituent
 /// parts specified in RFC1459 and the IRCv3 spec.
+#[derive(Clone, PartialEq, Eq)]
 pub struct Message {
     message: String,
     tags: Option<Vec<TagRange>>,

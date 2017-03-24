@@ -5,6 +5,7 @@ use std::ops::Range;
 use std::slice::Iter;
 
 /// An implementation of Iterator that iterates over the arguments of a `Message`.
+#[derive(Clone)]
 pub struct ArgumentIter<'a> {
     source: &'a str,
     iter: Iter<'a, Range<usize>>,
