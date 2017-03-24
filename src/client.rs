@@ -199,7 +199,7 @@ impl<T> Stream for IrcTransport<T> where T: AsyncRead + AsyncWrite  {
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         if self.last_ping.elapsed().as_secs() >= PING_TIMEOUT_IN_SECONDS {
-            self.inner.close()?;
+            self.close()?;
             return Err(ErrorKind::ConnectionReset.into());
         }
 
@@ -207,11 +207,11 @@ impl<T> Stream for IrcTransport<T> where T: AsyncRead + AsyncWrite  {
             if let Some(message) = try_ready!(self.inner.poll()) {
                 if let Some(Ping(host)) = message.command::<Ping>() {
                     self.last_ping = time::Instant::now();
-                    let result = self.inner.start_send(message::pong(host)?)?;
+                    let result = self.start_send(message::pong(host)?)?;
 
                     assert!(result.is_ready());
 
-                    self.inner.poll_complete()?;
+                    self.poll_complete()?;
                     continue;
                 }
 
@@ -233,5 +233,9 @@ impl<T> Sink for IrcTransport<T> where T: AsyncRead + AsyncWrite {
 
     fn poll_complete(&mut self) -> Poll<(), Self::SinkError> {
         Ok(self.inner.poll_complete()?)
+    }
+
+    fn close(&mut self) -> Poll<(), Self::SinkError> {
+        Ok(self.inner.close()?)
     }
 }
