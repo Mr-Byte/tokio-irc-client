@@ -1,6 +1,7 @@
 extern crate tokio_irc_client;
 extern crate futures;
 extern crate tokio_core;
+extern crate pircolate;
 
 use std::net::ToSocketAddrs;
 use tokio_core::reactor::Core;
@@ -10,8 +11,8 @@ use futures::Sink;
 use futures::stream;
 
 use tokio_irc_client::Client;
-use tokio_irc_client::message;
-use tokio_irc_client::command::Privmsg;
+use pircolate::message;
+use pircolate::command::Privmsg;
 
 fn main() {
     // Create the event loop

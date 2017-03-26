@@ -2,12 +2,13 @@
 //! to a remote IRC host.
 
 use codec;
-use message::Message;
-use message;
-use command::Ping;
 use error::{Error, ErrorKind};
 
 use futures::{Future, Sink, Stream, Poll, StartSend, Async};
+
+use pircolate::command::Ping;
+use pircolate::Message;
+use pircolate::message;
 
 use tokio_core::reactor::Handle;
 use tokio_core::net::{TcpStream, TcpStreamNew};

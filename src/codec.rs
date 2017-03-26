@@ -1,7 +1,7 @@
 use bytes::BytesMut;
 use tokio_io::codec::{Encoder, Decoder};
 
-use message::Message;
+use pircolate::Message;
 
 use super::error::{Error, Result};
 

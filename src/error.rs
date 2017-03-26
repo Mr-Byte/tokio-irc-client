@@ -18,15 +18,9 @@ error_chain! {
             description("The connection was reset by the remote host.")
             display("The connection was reset by the remote host.")
         }
+    }
 
-        UnexpectedEndOfInput {
-            description("Encountered unexpected end of input while reading message from server.")
-            display("Encountered unexpected end of input while reading message from server.")
-        }
-
-        InputTooLong(message: String) {
-            description("The input was too long.")
-            display("{}", message)
-        }
+    links {
+        Pircolate(::pircolate::error::Error, ::pircolate::error::ErrorKind);
     }
 }

@@ -39,12 +39,10 @@ extern crate tokio_io;
 extern crate tokio_tls;
 extern crate bytes;
 extern crate native_tls;
+extern crate pircolate;
 
 mod codec;
 pub mod error;
-pub mod command;
-pub mod tag;
-pub mod message;
 pub mod client;
 
 pub use client::{Client, ClientConnectFuture, ClientConnectTlsFuture};
