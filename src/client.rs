@@ -6,7 +6,6 @@ use error::{Error, ErrorKind};
 
 use futures::{Future, Sink, Stream, Poll, StartSend, Async};
 
-use pircolate::command::Ping;
 use pircolate::Message;
 use pircolate::message;
 
@@ -180,12 +179,16 @@ impl Future for ClientConnectTlsFuture {
 ///
 /// It is possible to split `IrcTransport` into `Stream` and `Sink` via the
 /// the `split` method.
-pub struct IrcTransport<T> where T: AsyncRead + AsyncWrite {
+pub struct IrcTransport<T>
+    where T: AsyncRead + AsyncWrite
+{
     inner: Framed<T, codec::IrcCodec>,
     last_ping: time::Instant,
 }
 
-impl<T> IrcTransport<T> where T: AsyncRead + AsyncWrite {
+impl<T> IrcTransport<T>
+    where T: AsyncRead + AsyncWrite
+{
     fn new(inner: Framed<T, codec::IrcCodec>) -> IrcTransport<T> {
         IrcTransport {
             inner: inner,
@@ -194,7 +197,9 @@ impl<T> IrcTransport<T> where T: AsyncRead + AsyncWrite {
     }
 }
 
-impl<T> Stream for IrcTransport<T> where T: AsyncRead + AsyncWrite  {
+impl<T> Stream for IrcTransport<T>
+    where T: AsyncRead + AsyncWrite
+{
     type Item = Message;
     type Error = Error;
 
@@ -205,26 +210,27 @@ impl<T> Stream for IrcTransport<T> where T: AsyncRead + AsyncWrite  {
         }
 
         loop {
-            if let Some(message) = try_ready!(self.inner.poll()) {
-                if let Some(Ping(host)) = message.command::<Ping>() {
+            match try_ready!(self.inner.poll()) {
+                Some(ref message) if message.raw_command() == "PING" => {
                     self.last_ping = time::Instant::now();
-                    let result = self.start_send(message::pong(host)?)?;
 
-                    assert!(result.is_ready());
+                    if let Some(host) = message.raw_args().next() {
+                        let result = self.inner.start_send(message::pong(host)?)?;
 
-                    self.poll_complete()?;
-                    continue;
+                        assert!(result.is_ready());
+
+                        self.inner.poll_complete()?;
+                    }
                 }
-
-                return Ok(Async::Ready(Some(message)));
+                message => return Ok(Async::Ready(message)),
             }
-
-            return Ok(Async::Ready(None));
         }
     }
 }
 
-impl<T> Sink for IrcTransport<T> where T: AsyncRead + AsyncWrite {
+impl<T> Sink for IrcTransport<T>
+    where T: AsyncRead + AsyncWrite
+{
     type SinkItem = Message;
     type SinkError = Error;
 
@@ -234,9 +240,5 @@ impl<T> Sink for IrcTransport<T> where T: AsyncRead + AsyncWrite {
 
     fn poll_complete(&mut self) -> Poll<(), Self::SinkError> {
         Ok(self.inner.poll_complete()?)
-    }
-
-    fn close(&mut self) -> Poll<(), Self::SinkError> {
-        Ok(self.inner.close()?)
     }
 }

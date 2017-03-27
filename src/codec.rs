@@ -31,7 +31,7 @@ impl Encoder for IrcCodec {
 
     fn encode(&mut self, message: Self::Item, buffer: &mut BytesMut) -> Result<()> {
         buffer.extend(message.raw_message().as_bytes());
-        buffer.extend(&[b'\r', b'\n']);
+        buffer.extend(b"\r\n");
 
         Ok(())
     }
