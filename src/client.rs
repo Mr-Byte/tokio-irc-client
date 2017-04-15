@@ -15,8 +15,9 @@ use tokio_core::net::{TcpStream, TcpStreamNew};
 use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_io::codec::Framed;
 
+#[cfg(tls)]
 use tokio_tls::{ConnectAsync, TlsConnectorExt, TlsStream};
-
+#[cfg(tls)]
 use native_tls::TlsConnector;
 
 use std::net::SocketAddr;
@@ -67,6 +68,7 @@ impl Client {
     ///
     /// `domain` is the domain name of the remote server being connected to.
     /// it is required to validate the security of the connection.
+    #[cfg(tls)]
     pub fn connect_tls<D: Into<String>>(&self,
                                         handle: &Handle,
                                         domain: D)
@@ -115,6 +117,7 @@ impl Future for ClientConnectFuture {
 /// Represents a future, that when resolved provides a TLS encrypted `Stream`
 /// that can be used to receive `Message` from the server and send `Message`
 /// to the server.
+#[cfg(tls)]
 pub enum ClientConnectTlsFuture {
     #[doc(hidden)]
     TlsErr(Error),
@@ -139,6 +142,7 @@ pub enum ClientConnectTlsFuture {
 // `TlsConnector` to be created, an operation that can possibly fail, this
 // future may start in an error state and will immediately resolve with that
 // error on the next call to `poll`.
+#[cfg(tls)]
 impl Future for ClientConnectTlsFuture {
     type Item = IrcTransport<TlsStream<TcpStream>>;
     type Error = Error;

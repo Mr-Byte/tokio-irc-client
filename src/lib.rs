@@ -36,14 +36,19 @@ extern crate futures;
 extern crate error_chain;
 extern crate tokio_core;
 extern crate tokio_io;
-extern crate tokio_tls;
 extern crate bytes;
-extern crate native_tls;
 extern crate pircolate;
+
+#[cfg(tls)]
+extern crate tokio_tls;
+#[cfg(tls)]
+extern crate native_tls;
 
 mod codec;
 pub mod error;
 pub mod client;
 
-pub use client::{Client, ClientConnectFuture, ClientConnectTlsFuture};
+pub use client::{Client, ClientConnectFuture};
+#[cfg(tls)]
+pub use clinet::ClientConnectTlsFuture;
 pub use error::Error;
