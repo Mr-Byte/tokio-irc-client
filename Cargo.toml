@@ -1,6 +1,6 @@
 [package]
 name = "tokio-irc-client"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["Joshua R. Rodgers <bytemr@gmail.com>"]
 license = "Apache-2.0/MIT"
 description = "IRCv3 compatible client library using tokio and futures."
@@ -13,8 +13,8 @@ bytes = "0.4"
 futures = "0.1"
 tokio-core = "0.1"
 tokio-io = "0.1"
-error-chain = "0.8"
-pircolate = "0.1"
+error-chain = "0.10"
+pircolate = "0.2"
 
 # Optional TLS dependencies
 tokio-tls = { version = "0.1", optional = true }

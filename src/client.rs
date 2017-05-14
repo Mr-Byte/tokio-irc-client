@@ -219,7 +219,7 @@ impl<T> Stream for IrcTransport<T>
                     self.last_ping = time::Instant::now();
 
                     if let Some(host) = message.raw_args().next() {
-                        let result = self.inner.start_send(message::pong(host)?)?;
+                        let result = self.inner.start_send(message::client::pong(host)?)?;
 
                         assert!(result.is_ready());
 
