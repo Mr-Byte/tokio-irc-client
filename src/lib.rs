@@ -39,9 +39,9 @@ extern crate tokio_io;
 extern crate bytes;
 extern crate pircolate;
 
-#[cfg(tls)]
+#[cfg(feature = "tls")]
 extern crate tokio_tls;
-#[cfg(tls)]
+#[cfg(feature = "tls")]
 extern crate native_tls;
 
 mod codec;
@@ -49,6 +49,6 @@ pub mod error;
 pub mod client;
 
 pub use client::{Client, ClientConnectFuture};
-#[cfg(tls)]
-pub use clinet::ClientConnectTlsFuture;
+#[cfg(feature = "tls")]
+pub use client::ClientConnectTlsFuture;
 pub use error::Error;

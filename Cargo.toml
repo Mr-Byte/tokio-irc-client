@@ -1,6 +1,6 @@
 [package]
 name = "tokio-irc-client"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Joshua R. Rodgers <bytemr@gmail.com>"]
 license = "Apache-2.0/MIT"
 description = "IRCv3 compatible client library using tokio and futures."

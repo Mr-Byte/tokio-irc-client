@@ -1,7 +1,7 @@
 // TODO: Come back and document this.
 #![allow(missing_docs)]
 
-#[cfg(not(tls))]
+#[cfg(not(feature = "tls"))]
 error_chain! {
     foreign_links {
         Io(::std::io::Error);
@@ -25,7 +25,7 @@ error_chain! {
     }
 }
 
-#[cfg(tls)]
+#[cfg(feature = "tls")]
 error_chain! {
     foreign_links {
         Io(::std::io::Error);
