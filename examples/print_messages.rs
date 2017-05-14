@@ -12,7 +12,7 @@ use futures::stream;
 
 use tokio_irc_client::Client;
 use pircolate::message;
-use pircolate::command::Privmsg;
+use pircolate::command::PrivMsg;
 
 fn main() {
     // Create the event loop
@@ -28,9 +28,9 @@ fn main() {
     let client = Client::new(addr)
         .connect(&handle).and_then(|irc| {
             let connect_sequence = vec! [
-                message::nick("RustBot"),
-                message::user("RustBot", "Example bot written in Rust"),
-                message::join("#prograaming")
+                message::client::nick("RustBot"),
+                message::client::user("RustBot", "Example bot written in Rust"),
+                message::client::join("#prograaming", None)
             ];
 
             irc.send_all(stream::iter(connect_sequence))
@@ -39,7 +39,7 @@ fn main() {
             // Checking if the command is PRIVMSG allows us to print just the
             // messages
             irc.for_each(|incoming_message| {
-                if let Some(Privmsg(_, message)) = incoming_message.command::<Privmsg>() {
+                if let Some(PrivMsg(_, message)) = incoming_message.command::<PrivMsg>() {
                     if let Some((nick, _, _)) = incoming_message.prefix() {
                         println!("<{}> {}", nick, message)
                     }
