@@ -19,8 +19,13 @@ fn main() {
     let mut ev = Core::new().unwrap();
     let handle = ev.handle();
 
+    let mut server = "irc.freenode.org:6667".to_string();
+    if let Ok(env_override) = std::env::var("IRC_SERVER") {
+        server = env_override;
+    }
+
     // Do a DNS query and get the first socket address for Freenode
-    let addr = "irc.freenode.org:6667".to_socket_addrs().unwrap().next().unwrap();
+    let addr = server.to_socket_addrs().unwrap().next().unwrap();
 
     // Create the client future and connect to the server
     // In order to connect we need to send a NICK message,
@@ -30,7 +35,7 @@ fn main() {
             let connect_sequence = vec! [
                 message::client::nick("RustBot"),
                 message::client::user("RustBot", "Example bot written in Rust"),
-                message::client::join("#prograaming", None)
+                message::client::join("#tokio-irc", None)
             ];
 
             irc.send_all(stream::iter(connect_sequence))
