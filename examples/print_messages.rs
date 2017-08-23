@@ -31,15 +31,17 @@ fn main() {
     // In order to connect we need to send a NICK message,
     // followed by a USER message
     let client = Client::new(addr)
-        .connect(&handle).and_then(|irc| {
-            let connect_sequence = vec! [
+        .connect(&handle)
+        .and_then(|irc| {
+            let connect_sequence = vec![
                 message::client::nick("RustBot"),
                 message::client::user("RustBot", "Example bot written in Rust"),
-                message::client::join("#tokio-irc", None)
+                message::client::join("#tokio-irc", None),
             ];
 
             irc.send_all(stream::iter(connect_sequence))
-        }).and_then(|(irc, _)| {
+        })
+        .and_then(|(irc, _)| {
             // We iterate over the IRC connection, giving us all the packets
             // Checking if the command is PRIVMSG allows us to print just the
             // messages

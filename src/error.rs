@@ -8,7 +8,7 @@ error_chain! {
         Utf8(::std::string::FromUtf8Error);
     }
 
-    errors { 
+    errors {
         Unexpected {
             description("An unexpected error occurred.")
             display("An unexpected error occurred.")
@@ -33,7 +33,7 @@ error_chain! {
         Utf8(::std::string::FromUtf8Error);
     }
 
-    errors { 
+    errors {
         Unexpected {
             description("An unexpected error occurred.")
             display("An unexpected error occurred.")
