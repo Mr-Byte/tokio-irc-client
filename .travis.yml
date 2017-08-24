@@ -1,4 +1,7 @@
 language: rust
+sudo: required
+services:
+  - docker
 rust:
   - stable
   - beta
@@ -10,3 +13,4 @@ matrix:
 script:
 - cargo build --verbose --examples
 - cargo test
+- ./scripts/docker-examples-test.sh
