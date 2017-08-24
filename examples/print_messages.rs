@@ -1,7 +1,7 @@
-extern crate tokio_irc_client;
 extern crate futures;
-extern crate tokio_core;
 extern crate pircolate;
+extern crate tokio_core;
+extern crate tokio_irc_client;
 
 use std::net::ToSocketAddrs;
 use tokio_core::reactor::Core;
@@ -12,7 +12,7 @@ use futures::stream;
 
 use tokio_irc_client::Client;
 use pircolate::message;
-use pircolate::command::PrivMsg;
+use pircolate::command::{PrivMsg, Welcome};
 
 fn main() {
     // Create the event loop
@@ -36,16 +36,33 @@ fn main() {
             let connect_sequence = vec![
                 message::client::nick("RustBot"),
                 message::client::user("RustBot", "Example bot written in Rust"),
-                message::client::join("#tokio-irc", None),
             ];
 
             irc.send_all(stream::iter(connect_sequence))
         })
         .and_then(|(irc, _)| {
+            let (send, recv) = irc.split();
+            let welcome_received = recv.skip_while(|msg| {
+                match msg.command() {
+                    Some(Welcome(_, _)) => Ok(false),
+                    _ => Ok(true), // continue waiting for a welcome
+                }
+            });
+
+            welcome_received
+                .into_future()
+                .map_err(|res| res.0)
+                .and_then(|(_, recv)| Ok((send, recv)))
+        })
+        .and_then(|(send, recv)| {
+            send.send(message::client::join("#tokio-irc", None).unwrap())
+                .and_then(|send| Ok((send, recv)))
+        })
+        .and_then(|(_, recv)| {
             // We iterate over the IRC connection, giving us all the packets
             // Checking if the command is PRIVMSG allows us to print just the
             // messages
-            irc.for_each(|incoming_message| {
+            recv.for_each(|incoming_message| {
                 if let Some(PrivMsg(_, message)) = incoming_message.command::<PrivMsg>() {
                     if let Some((nick, _, _)) = incoming_message.prefix() {
                         println!("<{}> {}", nick, message)
