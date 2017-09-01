@@ -1,5 +1,5 @@
 use bytes::BytesMut;
-use tokio_io::codec::{Encoder, Decoder};
+use tokio_io::codec::{Decoder, Encoder};
 
 use pircolate::Message;
 
@@ -18,7 +18,9 @@ impl Decoder for IrcCodec {
             let command = buffer.split_to(index - 1);
             buffer.split_to(DELIMETER_LENGTH);
 
-            Ok(Some(Message::try_from(String::from_utf8(command.to_vec())?)?))
+            Ok(Some(
+                Message::try_from(String::from_utf8(command.to_vec())?)?,
+            ))
         } else {
             Ok(None)
         }

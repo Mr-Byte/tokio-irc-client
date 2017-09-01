@@ -4,15 +4,16 @@ extern crate tokio_core;
 extern crate tokio_irc_client;
 
 use std::net::ToSocketAddrs;
+use std::str::FromStr;
 use tokio_core::reactor::Core;
 use futures::future::Future;
-use futures::Stream;
 use futures::Sink;
+use futures::Stream;
 use futures::stream;
 
 use tokio_irc_client::Client;
 use pircolate::message;
-use pircolate::command::{PrivMsg, Welcome};
+use pircolate::command::Welcome;
 
 fn main() {
     // Create the event loop
@@ -34,14 +35,15 @@ fn main() {
         .connect(&handle)
         .and_then(|irc| {
             let connect_sequence = vec![
-                message::client::nick("RustBot"),
-                message::client::user("RustBot", "Example bot written in Rust"),
+                message::client::nick("RustBot2"),
+                message::client::user("RustBot2", "Example bot written in Rust"),
             ];
 
             irc.send_all(stream::iter(connect_sequence))
         })
         .and_then(|(irc, _)| {
             let (send, recv) = irc.split();
+
             let welcome_received = recv.skip_while(|msg| {
                 match msg.command() {
                     Some(Welcome(_, _)) => Ok(false),
@@ -58,19 +60,19 @@ fn main() {
             send.send(message::client::join("#tokio-irc", None).unwrap())
                 .and_then(|send| Ok((send, recv)))
         })
-        .and_then(|(_, recv)| {
-            // We iterate over the IRC connection, giving us all the packets
-            // Checking if the command is PRIVMSG allows us to print just the
-            // messages
-            recv.for_each(|incoming_message| {
-                if let Some(PrivMsg(_, message)) = incoming_message.command::<PrivMsg>() {
-                    if let Some((nick, _, _)) = incoming_message.prefix() {
-                        println!("<{}> {}", nick, message)
-                    }
-                }
-
-                Ok(())
-            })
+        .and_then(|(send, recv)| {
+            send.send_all(stream::iter(vec![
+                message::client::priv_msg("#tokio-irc", "Hello World!"),
+                message::client::priv_msg("#tokio-irc", "Goodbye world"),
+            ])).and_then(|(send, _)| Ok((send, recv)))
+        })
+        .and_then(|(send, recv)| {
+            send.send(
+                message::Message::from_str("PART #tokio-irc :are you still there\r\n").unwrap(),
+            ).and_then(|send| Ok((send, recv)))
+        })
+        .and_then(|(send, _)| {
+            send.send(message::Message::from_str("QUIT").unwrap())
         });
 
     ev.run(client).unwrap();

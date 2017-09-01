@@ -4,7 +4,7 @@
 use codec;
 use error::{Error, ErrorKind};
 
-use futures::{Future, Sink, Stream, Poll, StartSend, Async};
+use futures::{Async, Future, Poll, Sink, StartSend, Stream};
 
 use pircolate::Message;
 use pircolate::message;
@@ -69,21 +69,20 @@ impl Client {
     /// `domain` is the domain name of the remote server being connected to.
     /// it is required to validate the security of the connection.
     #[cfg(feature = "tls")]
-    pub fn connect_tls<D: Into<String>>(&self,
-                                        handle: &Handle,
-                                        domain: D)
-                                        -> ClientConnectTlsFuture {
+    pub fn connect_tls<D: Into<String>>(
+        &self,
+        handle: &Handle,
+        domain: D,
+    ) -> ClientConnectTlsFuture {
         use self::ClientConnectTlsFuture::*;
 
         let tls_connector = match TlsConnector::builder() {
-            Ok(tls_builder) => {
-                match tls_builder.build() {
-                    Ok(connector) => connector,
-                    Err(err) => {
-                        return TlsErr(ErrorKind::Tls(err).into());
-                    }
+            Ok(tls_builder) => match tls_builder.build() {
+                Ok(connector) => connector,
+                Err(err) => {
+                    return TlsErr(ErrorKind::Tls(err).into());
                 }
-            }
+            },
             Err(err) => {
                 return TlsErr(ErrorKind::Tls(err).into());
             }
@@ -119,12 +118,9 @@ impl Future for ClientConnectFuture {
 /// to the server.
 #[cfg(feature = "tls")]
 pub enum ClientConnectTlsFuture {
-    #[doc(hidden)]
-    TlsErr(Error),
-    #[doc(hidden)]
-    TcpConnecting(TcpStreamNew, TlsConnector, String),
-    #[doc(hidden)]
-    TlsHandshake(ConnectAsync<TcpStream>),
+    #[doc(hidden)] TlsErr(Error),
+    #[doc(hidden)] TcpConnecting(TcpStreamNew, TlsConnector, String),
+    #[doc(hidden)] TlsHandshake(ConnectAsync<TcpStream>),
 }
 
 // This future is represented internally as a simple state machine.
@@ -164,7 +160,6 @@ impl Future for ClientConnectTlsFuture {
             }
 
             TcpConnecting(ref mut tcp_connect_future, ref mut tls_connector, ref domain) => {
-
                 let tcp_stream = try_ready!(tcp_connect_future.poll());
                 tls_connector.connect_async(&domain, tcp_stream)
             }
@@ -184,14 +179,16 @@ impl Future for ClientConnectTlsFuture {
 /// It is possible to split `IrcTransport` into `Stream` and `Sink` via the
 /// the `split` method.
 pub struct IrcTransport<T>
-    where T: AsyncRead + AsyncWrite
+where
+    T: AsyncRead + AsyncWrite,
 {
     inner: Framed<T, codec::IrcCodec>,
     last_ping: time::Instant,
 }
 
 impl<T> IrcTransport<T>
-    where T: AsyncRead + AsyncWrite
+where
+    T: AsyncRead + AsyncWrite,
 {
     fn new(inner: Framed<T, codec::IrcCodec>) -> IrcTransport<T> {
         IrcTransport {
@@ -202,7 +199,8 @@ impl<T> IrcTransport<T>
 }
 
 impl<T> Stream for IrcTransport<T>
-    where T: AsyncRead + AsyncWrite
+where
+    T: AsyncRead + AsyncWrite,
 {
     type Item = Message;
     type Error = Error;
@@ -233,7 +231,8 @@ impl<T> Stream for IrcTransport<T>
 }
 
 impl<T> Sink for IrcTransport<T>
-    where T: AsyncRead + AsyncWrite
+where
+    T: AsyncRead + AsyncWrite,
 {
     type SinkItem = Message;
     type SinkError = Error;

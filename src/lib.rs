@@ -24,25 +24,23 @@
 //! on this stream to get a `Stream` or incoming IRC messages and `Sink` for
 //! for sending messages to the server.
 //!
-
 // TODO: **REALLY** improve the quality of the documentation in this library.
 // it's really bad. I'm not very good at writing it.
-
 #![deny(missing_docs)]
 
-#[macro_use]
-extern crate futures;
+extern crate bytes;
 #[macro_use]
 extern crate error_chain;
+#[macro_use]
+extern crate futures;
+extern crate pircolate;
 extern crate tokio_core;
 extern crate tokio_io;
-extern crate bytes;
-extern crate pircolate;
 
 #[cfg(feature = "tls")]
-extern crate tokio_tls;
-#[cfg(feature = "tls")]
 extern crate native_tls;
+#[cfg(feature = "tls")]
+extern crate tokio_tls;
 
 mod codec;
 pub mod error;
