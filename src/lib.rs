@@ -34,8 +34,7 @@ extern crate error_chain;
 #[macro_use]
 extern crate futures;
 extern crate pircolate;
-extern crate tokio_core;
-extern crate tokio_io;
+extern crate tokio;
 
 #[cfg(feature = "tls")]
 extern crate native_tls;
@@ -46,7 +45,7 @@ mod codec;
 pub mod error;
 pub mod client;
 
-pub use client::{Client, ClientConnectFuture};
+pub use client::{Client, BoxedStreamFuture};
 #[cfg(feature = "tls")]
 pub use client::ClientConnectTlsFuture;
 pub use error::Error;

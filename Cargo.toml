@@ -12,8 +12,7 @@ tls = ["tokio-tls", "native-tls"]
 [dependencies]
 bytes = "0.4"
 futures = "0.1"
-tokio-core = "0.1"
-tokio-io = "0.1"
+tokio = "^0.1.11"
 error-chain = "0.10"
 pircolate = "0.2"
 

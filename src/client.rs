@@ -9,11 +9,10 @@ use futures::{Async, Future, Poll, Sink, StartSend, Stream};
 use pircolate::Message;
 use pircolate::message;
 
-use tokio_core::reactor::Handle;
-use tokio_core::net::{TcpStream, TcpStreamNew};
-
-use tokio_io::{AsyncRead, AsyncWrite};
-use tokio_io::codec::Framed;
+use tokio::prelude::*;
+use tokio::net::TcpStream;
+use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::codec::{Framed, Decoder};
 
 #[cfg(feature = "tls")]
 use tokio_tls::{ConnectAsync, TlsConnectorExt, TlsStream};
@@ -22,6 +21,11 @@ use native_tls::TlsConnector;
 
 use std::net::SocketAddr;
 use std::time;
+
+/// Represents a future, that when resolved provides an unecrypted `Stream`
+/// ([IrcTransport](struct.IrcTransport.html)) that can be used to receive
+/// `Message` from the server and send `Message` to the server.
+pub type BoxedStreamFuture = Box<Future<Item = IrcTransport<TcpStream>, Error = Error> + std::marker::Send + 'static>;
 
 const PING_TIMEOUT_IN_SECONDS: u64 = 10 * 60;
 
@@ -52,10 +56,15 @@ impl Client {
     /// The resulting `Stream` can be `split` into a separate `Stream` for
     /// receiving `Message` from the server and a `Sink` for sending `Message`
     /// to the server.
-    pub fn connect(&self, handle: &Handle) -> ClientConnectFuture {
-        let tcp_stream = TcpStream::connect(&self.host, handle);
+    pub fn connect(&self) -> BoxedStreamFuture {
+        let future = TcpStream::connect(&self.host)
+            .and_then(|tcp_stream| {
+                let framed_stream = codec::IrcCodec.framed(tcp_stream);
+                return future::ok(IrcTransport::new(framed_stream));
+            })
+            .map_err(|err| err.into());
 
-        ClientConnectFuture { inner: tcp_stream }
+        Box::new(future)
     }
 
     /// Returns a future, that when resolved provides a TLS encrypted `Stream`
@@ -91,25 +100,6 @@ impl Client {
         let tcp_stream = TcpStream::connect(&self.host, handle);
 
         TcpConnecting(tcp_stream, tls_connector, domain.into())
-    }
-}
-
-/// Represents a future, that when resolved provides an unecrypted `Stream`
-/// that can be used to receive `Message` from the server and send `Message`
-/// to the server.
-pub struct ClientConnectFuture {
-    inner: TcpStreamNew,
-}
-
-impl Future for ClientConnectFuture {
-    type Item = IrcTransport<TcpStream>;
-    type Error = Error;
-
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let framed = try_ready!(self.inner.poll()).framed(codec::IrcCodec);
-        let irc_transport = IrcTransport::new(framed);
-
-        Ok(Async::Ready(irc_transport))
     }
 }
 

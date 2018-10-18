@@ -1,11 +1,10 @@
 extern crate futures;
 extern crate pircolate;
-extern crate tokio_core;
+extern crate tokio;
 extern crate tokio_irc_client;
 
 use std::net::ToSocketAddrs;
 use std::str::FromStr;
-use tokio_core::reactor::Core;
 use futures::future::Future;
 use futures::Sink;
 use futures::Stream;
@@ -16,10 +15,6 @@ use pircolate::message;
 use pircolate::command::Welcome;
 
 fn main() {
-    // Create the event loop
-    let mut ev = Core::new().unwrap();
-    let handle = ev.handle();
-
     let mut server = "irc.freenode.org:6667".to_string();
     if let Ok(env_override) = std::env::var("IRC_SERVER") {
         server = env_override;
@@ -32,14 +27,14 @@ fn main() {
     // In order to connect we need to send a NICK message,
     // followed by a USER message
     let client = Client::new(addr)
-        .connect(&handle)
+        .connect()
         .and_then(|irc| {
             let connect_sequence = vec![
                 message::client::nick("RustBot2"),
                 message::client::user("RustBot2", "Example bot written in Rust"),
             ];
 
-            irc.send_all(stream::iter(connect_sequence))
+            irc.send_all(stream::iter_result(connect_sequence))
         })
         .and_then(|(irc, _)| {
             let (send, recv) = irc.split();
@@ -61,7 +56,7 @@ fn main() {
                 .and_then(|send| Ok((send, recv)))
         })
         .and_then(|(send, recv)| {
-            send.send_all(stream::iter(vec![
+            send.send_all(stream::iter_result(vec![
                 message::client::priv_msg("#tokio-irc", "Hello World!"),
                 message::client::priv_msg("#tokio-irc", "Goodbye world"),
             ])).and_then(|(send, _)| Ok((send, recv)))
@@ -73,7 +68,13 @@ fn main() {
         })
         .and_then(|(send, _)| {
             send.send(message::Message::from_str("QUIT").unwrap())
+        })
+        .and_then(|_sink| {
+            Ok(())
+        })
+        .map_err(|err| {
+            panic!("Example panicked: {:?}", err);
         });
 
-    ev.run(client).unwrap();
+    tokio::run(client);
 }
