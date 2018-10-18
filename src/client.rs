@@ -21,11 +21,12 @@ use native_tls::TlsConnector;
 
 use std::net::SocketAddr;
 use std::time;
+use std::marker;
 
 /// Represents a future, that when resolved provides an unecrypted `Stream`
 /// ([IrcTransport](struct.IrcTransport.html)) that can be used to receive
 /// `Message` from the server and send `Message` to the server.
-pub type BoxedStreamFuture = Box<Future<Item = IrcTransport<TcpStream>, Error = Error> + std::marker::Send + 'static>;
+pub type BoxedStreamFuture = Box<Future<Item = IrcTransport<TcpStream>, Error = Error> + marker::Send + 'static>;
 
 const PING_TIMEOUT_IN_SECONDS: u64 = 10 * 60;
 
