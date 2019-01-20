@@ -1,10 +1,11 @@
 [package]
 name = "tokio-irc-client"
-version = "0.2.1"
+version = "0.3.0"
 authors = ["Joshua R. Rodgers <bytemr@gmail.com>"]
 license = "Apache-2.0/MIT"
 description = "IRCv3 compatible client library using tokio and futures."
 repository = "https://github.com/Mr-Byte/tokio-irc-client"
+edition = "2018"
 
 [features]
 tls = ["tokio-tls", "native-tls"]
@@ -12,10 +13,11 @@ tls = ["tokio-tls", "native-tls"]
 [dependencies]
 bytes = "0.4"
 futures = "0.1"
-tokio-core = "0.1"
+tokio = "0.1"
 tokio-io = "0.1"
-error-chain = "0.10"
-pircolate = "0.2"
+tokio-codec = "0.1"
+failure = "^0.1"
+pircolate = { path = "../pircolate" }
 
 # Optional TLS dependencies
 tokio-tls = { version = "0.1", optional = true }

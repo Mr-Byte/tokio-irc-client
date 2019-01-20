@@ -1,51 +1,58 @@
-// TODO: Come back and document this.
 #![allow(missing_docs)]
 
-#[cfg(not(feature = "tls"))]
-error_chain! {
-    foreign_links {
-        Io(::std::io::Error);
-        Utf8(::std::string::FromUtf8Error);
+use failure::Fail;
+
+//#[cfg(not(feature = "tls"))]
+#[derive(Debug, Fail)]
+pub enum Error {
+    #[fail(display = "IO error: {}", error)]
+    Io {
+        #[cause]
+        error: std::io::Error,
+    },
+    #[fail(display = "Failed to convert to UTF-8: {}", error)]
+    Utf8 {
+        #[cause]
+        error: std::string::FromUtf8Error,
+    },
+    #[fail(display = "Failed to parse IRC message: {}", error)]
+    ParseError {
+        #[cause]
+        error: pircolate::error::MessageParseError,
+    },
+    #[cfg(feature = "tls")]
+    #[fail(display = "TLS error: {}", error)]
+    Tls {
+        #[cause]
+        error: native_tls::Error,
+    },
+    #[fail(display = "Connection to remote host was reset.")]
+    ConnectionReset,
+    #[fail(display = "Unexpected error")]
+    UnexpectedError,
+}
+
+impl From<std::io::Error> for Error {
+    fn from(error: std::io::Error) -> Error {
+        Error::Io { error }
     }
+}
 
-    errors {
-        Unexpected {
-            description("An unexpected error occurred.")
-            display("An unexpected error occurred.")
-        }
-
-        ConnectionReset {
-            description("The connection was reset by the remote host.")
-            display("The connection was reset by the remote host.")
-        }
+impl From<std::string::FromUtf8Error> for Error {
+    fn from(error: std::string::FromUtf8Error) -> Error {
+        Error::Utf8 { error }
     }
+}
 
-    links {
-        Pircolate(::pircolate::error::Error, ::pircolate::error::ErrorKind);
+impl From<pircolate::error::MessageParseError> for Error {
+    fn from(error: pircolate::error::MessageParseError) -> Error {
+        Error::ParseError { error }
     }
 }
 
 #[cfg(feature = "tls")]
-error_chain! {
-    foreign_links {
-        Io(::std::io::Error);
-        Tls(::native_tls::Error);
-        Utf8(::std::string::FromUtf8Error);
-    }
-
-    errors {
-        Unexpected {
-            description("An unexpected error occurred.")
-            display("An unexpected error occurred.")
-        }
-
-        ConnectionReset {
-            description("The connection was reset by the remote host.")
-            display("The connection was reset by the remote host.")
-        }
-    }
-
-    links {
-        Pircolate(::pircolate::error::Error, ::pircolate::error::ErrorKind);
+impl From<native_tls::Error> for Error {
+    fn from(error: native_tls::Error) -> Error {
+        Error::Tls { error }
     }
 }

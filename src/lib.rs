@@ -28,25 +28,11 @@
 // it's really bad. I'm not very good at writing it.
 #![deny(missing_docs)]
 
-extern crate bytes;
-#[macro_use]
-extern crate error_chain;
-#[macro_use]
-extern crate futures;
-extern crate pircolate;
-extern crate tokio_core;
-extern crate tokio_io;
-
-#[cfg(feature = "tls")]
-extern crate native_tls;
-#[cfg(feature = "tls")]
-extern crate tokio_tls;
-
-mod codec;
-pub mod error;
 pub mod client;
+mod codec;
+mod error;
 
-pub use client::{Client, ClientConnectFuture};
+pub use client::{Client, ClientConnectFuture, IrcClient};
 #[cfg(feature = "tls")]
-pub use client::ClientConnectTlsFuture;
+pub use client::{ClientConnectTlsFuture, IrcTlsClient};
 pub use error::Error;

@@ -1,29 +1,36 @@
 //! The client module contains all types needed to make a connection
 //! to a remote IRC host.
 
-use codec;
-use error::{Error, ErrorKind};
+use crate::codec;
+use crate::error::Error;
 
 use futures::{Async, Future, Poll, Sink, StartSend, Stream};
 
-use pircolate::Message;
 use pircolate::message;
+use pircolate::Message;
 
-use tokio_core::reactor::Handle;
-use tokio_core::net::{TcpStream, TcpStreamNew};
-
+use tokio::net::tcp::{ConnectFuture, TcpStream};
+use tokio_codec::Framed;
 use tokio_io::{AsyncRead, AsyncWrite};
-use tokio_io::codec::Framed;
 
-#[cfg(feature = "tls")]
-use tokio_tls::{ConnectAsync, TlsConnectorExt, TlsStream};
 #[cfg(feature = "tls")]
 use native_tls::TlsConnector;
+#[cfg(feature = "tls")]
+use tokio_tls::{ConnectAsync, TlsConnectorExt, TlsStream};
 
 use std::net::SocketAddr;
 use std::time;
 
+use futures::try_ready;
+
 const PING_TIMEOUT_IN_SECONDS: u64 = 10 * 60;
+
+/// Represents a connected IrcClient over a TCP socket.
+pub type IrcClient = IrcTransport<TcpStream>;
+
+/// Represents a connected IrcClient over a TLS encrypted TCP socket.
+#[cfg(feature = "tls")]
+pub type IrcTlsClient = IrcTransport<TlsStream<TcpStream>>;
 
 /// A light-weight client type for establishing connections to remote servers.
 /// This type consumes a given `SocketAddr` and provides several methods for
@@ -52,8 +59,8 @@ impl Client {
     /// The resulting `Stream` can be `split` into a separate `Stream` for
     /// receiving `Message` from the server and a `Sink` for sending `Message`
     /// to the server.
-    pub fn connect(&self, handle: &Handle) -> ClientConnectFuture {
-        let tcp_stream = TcpStream::connect(&self.host, handle);
+    pub fn connect(&self) -> ClientConnectFuture {
+        let tcp_stream = TcpStream::connect(&self.host);
 
         ClientConnectFuture { inner: tcp_stream }
     }
@@ -69,28 +76,24 @@ impl Client {
     /// `domain` is the domain name of the remote server being connected to.
     /// it is required to validate the security of the connection.
     #[cfg(feature = "tls")]
-    pub fn connect_tls<D: Into<String>>(
-        &self,
-        handle: &Handle,
-        domain: D,
-    ) -> ClientConnectTlsFuture {
+    pub fn connect_tls<D: AsRef<str>>(&self, domain: D) -> ClientConnectTlsFuture {
         use self::ClientConnectTlsFuture::*;
 
         let tls_connector = match TlsConnector::builder() {
             Ok(tls_builder) => match tls_builder.build() {
                 Ok(connector) => connector,
                 Err(err) => {
-                    return TlsErr(ErrorKind::Tls(err).into());
+                    return TlsErr(err.into());
                 }
             },
             Err(err) => {
-                return TlsErr(ErrorKind::Tls(err).into());
+                return TlsErr(err.into());
             }
         };
 
-        let tcp_stream = TcpStream::connect(&self.host, handle);
+        let tcp_stream = TcpStream::connect(&self.host);
 
-        TcpConnecting(tcp_stream, tls_connector, domain.into())
+        TcpConnecting(tcp_stream, tls_connector, domain.as_ref().to_owned())
     }
 }
 
@@ -98,7 +101,7 @@ impl Client {
 /// that can be used to receive `Message` from the server and send `Message`
 /// to the server.
 pub struct ClientConnectFuture {
-    inner: TcpStreamNew,
+    inner: ConnectFuture,
 }
 
 impl Future for ClientConnectFuture {
@@ -106,7 +109,8 @@ impl Future for ClientConnectFuture {
     type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let framed = try_ready!(self.inner.poll()).framed(codec::IrcCodec);
+        let tcp_stream = try_ready!(self.inner.poll());
+        let framed = Framed::new(tcp_stream, codec::IrcCodec);
         let irc_transport = IrcTransport::new(framed);
 
         Ok(Async::Ready(irc_transport))
@@ -118,9 +122,12 @@ impl Future for ClientConnectFuture {
 /// to the server.
 #[cfg(feature = "tls")]
 pub enum ClientConnectTlsFuture {
-    #[doc(hidden)] TlsErr(Error),
-    #[doc(hidden)] TcpConnecting(TcpStreamNew, TlsConnector, String),
-    #[doc(hidden)] TlsHandshake(ConnectAsync<TcpStream>),
+    #[doc(hidden)]
+    TlsErr(Error),
+    #[doc(hidden)]
+    TcpConnecting(ConnectFuture, TlsConnector, String),
+    #[doc(hidden)]
+    TlsHandshake(ConnectAsync<TcpStream>),
 }
 
 // This future is represented internally as a simple state machine.
@@ -148,12 +155,13 @@ impl Future for ClientConnectTlsFuture {
 
         let connect_async = match *self {
             TlsErr(ref mut error) => {
-                let error = ::std::mem::replace(error, ErrorKind::Unexpected.into());
+                let error = std::mem::replace(error, Error::UnexpectedError);
                 return Err(error);
             }
 
             TlsHandshake(ref mut tls_connect_future) => {
-                let framed = try_ready!(tls_connect_future.poll()).framed(codec::IrcCodec);
+                let tcp_stream = try_ready!(tls_connect_future.poll());
+                let framed = Framed::new(tcp_stream, codec::IrcCodec);
                 let irc_transport = IrcTransport::new(framed);
 
                 return Ok(Async::Ready(irc_transport));
@@ -208,7 +216,7 @@ where
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         if self.last_ping.elapsed().as_secs() >= PING_TIMEOUT_IN_SECONDS {
             self.close()?;
-            return Err(ErrorKind::ConnectionReset.into());
+            return Err(Error::ConnectionReset);
         }
 
         loop {
@@ -218,9 +226,7 @@ where
 
                     if let Some(host) = message.raw_args().next() {
                         let result = self.inner.start_send(message::client::pong(host)?)?;
-
                         assert!(result.is_ready());
-
                         self.inner.poll_complete()?;
                     }
                 }
