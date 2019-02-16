@@ -17,7 +17,7 @@ tokio = "0.1"
 tokio-io = "0.1"
 tokio-codec = "0.1"
 failure = "^0.1"
-pircolate = { path = "../pircolate" }
+pircolate = { git = "https://github.com/Mr-Byte/pircolate", branch = "0.3" }
 
 # Optional TLS dependencies
 tokio-tls = { version = "0.1", optional = true }
