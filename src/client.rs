@@ -14,9 +14,9 @@ use tokio_codec::Framed;
 use tokio_io::{AsyncRead, AsyncWrite};
 
 #[cfg(feature = "tls")]
-use native_tls::TlsConnector;
+use native_tls::TlsConnector as NativeTlsConnector;
 #[cfg(feature = "tls")]
-use tokio_tls::{ConnectAsync, TlsConnectorExt, TlsStream};
+use tokio_tls::{Connect, TlsConnector, TlsStream};
 
 use std::net::SocketAddr;
 use std::time;
@@ -79,13 +79,8 @@ impl Client {
     pub fn connect_tls<D: AsRef<str>>(&self, domain: D) -> ClientConnectTlsFuture {
         use self::ClientConnectTlsFuture::*;
 
-        let tls_connector = match TlsConnector::builder() {
-            Ok(tls_builder) => match tls_builder.build() {
-                Ok(connector) => connector,
-                Err(err) => {
-                    return TlsErr(err.into());
-                }
-            },
+        let tls_connector = match NativeTlsConnector::builder().build() {
+            Ok(connector) => connector,
             Err(err) => {
                 return TlsErr(err.into());
             }
@@ -93,7 +88,11 @@ impl Client {
 
         let tcp_stream = TcpStream::connect(&self.host);
 
-        TcpConnecting(tcp_stream, tls_connector, domain.as_ref().to_owned())
+        TcpConnecting(
+            tcp_stream,
+            TlsConnector::from(tls_connector),
+            domain.as_ref().to_owned(),
+        )
     }
 }
 
@@ -127,7 +126,7 @@ pub enum ClientConnectTlsFuture {
     #[doc(hidden)]
     TcpConnecting(ConnectFuture, TlsConnector, String),
     #[doc(hidden)]
-    TlsHandshake(ConnectAsync<TcpStream>),
+    TlsHandshake(Connect<TcpStream>),
 }
 
 // This future is represented internally as a simple state machine.
@@ -169,7 +168,7 @@ impl Future for ClientConnectTlsFuture {
 
             TcpConnecting(ref mut tcp_connect_future, ref mut tls_connector, ref domain) => {
                 let tcp_stream = try_ready!(tcp_connect_future.poll());
-                tls_connector.connect_async(&domain, tcp_stream)
+                tls_connector.connect(&domain, tcp_stream)
             }
         };
 
