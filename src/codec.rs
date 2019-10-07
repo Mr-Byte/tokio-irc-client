@@ -1,5 +1,5 @@
 use bytes::BytesMut;
-use tokio_io::codec::{Decoder, Encoder};
+use tokio::codec::{Decoder, Encoder};
 
 use pircolate::Message;
 

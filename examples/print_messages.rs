@@ -1,10 +1,9 @@
 extern crate futures;
 extern crate pircolate;
-extern crate tokio_core;
+extern crate tokio;
 extern crate tokio_irc_client;
 
 use std::net::ToSocketAddrs;
-use tokio_core::reactor::Core;
 use futures::future::Future;
 use futures::Stream;
 use futures::Sink;
@@ -15,10 +14,6 @@ use pircolate::message;
 use pircolate::command::{PrivMsg, Welcome};
 
 fn main() {
-    // Create the event loop
-    let mut ev = Core::new().unwrap();
-    let handle = ev.handle();
-
     let mut server = "irc.freenode.org:6667".to_string();
     if let Ok(env_override) = std::env::var("IRC_SERVER") {
         server = env_override;
@@ -31,14 +26,14 @@ fn main() {
     // In order to connect we need to send a NICK message,
     // followed by a USER message
     let client = Client::new(addr)
-        .connect(&handle)
+        .connect()
         .and_then(|irc| {
             let connect_sequence = vec![
                 message::client::nick("RustBot"),
                 message::client::user("RustBot", "Example bot written in Rust"),
             ];
 
-            irc.send_all(stream::iter(connect_sequence))
+            irc.send_all(stream::iter_result(connect_sequence))
         })
         .and_then(|(irc, _)| {
             let (send, recv) = irc.split();
@@ -71,7 +66,10 @@ fn main() {
 
                 Ok(())
             })
+        })
+        .map_err(|err| {
+            panic!("Example panicked: {:?}", err);
         });
 
-    ev.run(client).unwrap();
+    tokio::run(client);
 }
